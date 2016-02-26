@@ -1,7 +1,7 @@
 -- for each managed table, this will contain an entry specifying when the table was added to pg_recall and the amount of time outdated log entries are kept
 -- TODO it might be better to use relation IDs instead of the table name.
 CREATE TABLE _recall_config (
-	table_name VARCHAR(100) NOT NULL,
+	table_name VARCHAR(100) NOT NULL PRIMARY KEY,
 	ts TIMESTAMP NOT NULL DEFAULT NOW(),
 	backlog INTERVAL NOT NULL
 );
@@ -41,6 +41,26 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
+--
+-- uninstaller function
+--
+CREATE FUNCTION disable_recall(tblName TEXT) RETURNS void AS $$
+BEGIN
+	-- remove inheritance
+	EXECUTE format('ALTER TABLE %I NO INHERIT %I', tblName, tblName||'_tpl');
+
+	-- drop extra tables
+	EXECUTE format('DROP TABLE %I', tblName||'_log');
+	EXECUTE format('DROP TABLE %I', tblName||'_tpl');
+
+	-- delete trigger
+	EXECUTE format('DROP TRIGGER trig_recall ON %I', tblName);
+
+	-- remove config table entry
+	DELETE FROM _recall_config WHERE table_name = tblName;
+END;
+$$ LANGUAGE plpgsql;
 
 --
 -- Trigger function
