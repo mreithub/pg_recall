@@ -124,7 +124,7 @@ $$ LANGUAGE plpgsql;
 
 
 --
--- Cleanup function (returns the number of deleted rows)
+-- Cleanup functions (return the number of deleted rows)
 --
 CREATE FUNCTION recall_cleanup(tbl REGCLASS) RETURNS INTEGER AS $$
 DECLARE
@@ -134,11 +134,23 @@ BEGIN
 	-- get the backlog interval
 	SELECT c.backlog INTO backlog FROM _recall_config c WHERE tblId = tbl;
 
+	RAISE NOTICE 'recall: Cleaning up table %', tbl;
 	-- Remove old entries
 	EXECUTE format('DELETE FROM %I WHERE _log_end_ts < now() - $1', tbl||'_log') USING backlog;
 
 	GET DIAGNOSTICS rc = ROW_COUNT;
 	RETURN rc;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE FUNCTION recall_cleanup_all() RETURNS VOID AS $$
+DECLARE
+	tbl REGCLASS;
+BEGIN
+	FOR tbl in SELECT tblid FROM _recall_config
+	LOOP
+		PERFORM recall_cleanup(tbl);
+	END LOOP;
 END;
 $$ LANGUAGE plpgsql;
 
