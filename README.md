@@ -129,5 +129,10 @@ Have a look at the [github issues page][2] and feel free to issue pull requests.
 
 Also, if you plan on porting recall to another database/framework, let me know.
 
+License
+-------
+
+This project is licensed under the terms of the PostgreSQL license (see the COPYING file for details).
+
 [1]: http://www.postgresql.org/docs/current/static/ddl-inherit.html
 [2]:
