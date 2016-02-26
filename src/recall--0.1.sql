@@ -1,43 +1,49 @@
 -- for each managed table, this will contain an entry specifying when the table was added to pg_recall and the amount of time outdated log entries are kept
 -- TODO it might be better to use relation IDs instead of the table name.
 CREATE TABLE _recall_config (
-	table_name VARCHAR(100) NOT NULL PRIMARY KEY,
-	ts TIMESTAMP NOT NULL DEFAULT NOW(),
-	backlog INTERVAL NOT NULL
+	tblid REGCLASS NOT NULL PRIMARY KEY,
+	ts TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+	backlog INTERVAL NOT NULL,
+	pkey_cols name[] NOT NULL
 );
 
 -- define it as config table (to include its data in pg_dump)
 SELECT pg_catalog.pg_extension_config_dump('_recall_config', '');
 
+
 --
 -- installer function
 -- 
-CREATE FUNCTION enable_recall(tblName TEXT, backlogInterval INTERVAL) RETURNS VOID AS $$
+CREATE FUNCTION enable_recall(tbl REGCLASS, backlogInterval INTERVAL) RETURNS VOID AS $$
 DECLARE
-	pkeys TEXT[];
+	pkeyCols name[];
 BEGIN
-	-- get the original table's pkey cols
+	-- fetch primary keys from the table schema (source: https://wiki.postgresql.org/wiki/Retrieve_primary_key_columns )
+	SELECT ARRAY(
+		SELECT a.attname INTO pkeyCols FROM pg_index i JOIN pg_attribute a ON (a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey))
+		WHERE  i.indrelid = tbl AND i.indisprimary
+	);
 
 	-- create the _tpl table (without constraints)
-	EXECUTE format('CREATE TABLE %I (LIKE %I)', tblName||'_tpl', tblName);
+	EXECUTE format('CREATE TABLE %I (LIKE %I)', tbl||'_tpl', tbl);
 
 	-- create the _log table
 	EXECUTE format('CREATE TABLE %I (
-		_log_start_ts TIMESTAMP NOT NULL DEFAULT now(),
-		_log_end_ts TIMESTAMP
-	) INHERITS (%I)', tblName||'_log', tblName||'_tpl');
+		_log_start_ts TIMESTAMPTZ NOT NULL DEFAULT now(),
+		_log_end_ts TIMESTAMPTZ
+	) INHERITS (%I)', tbl||'_log', tbl||'_tpl');
 
 	-- make the _tpl table the default of the data table
-	EXECUTE format('ALTER TABLE %I INHERIT %I', tblName, tblName||'_tpl');
+	EXECUTE format('ALTER TABLE %I INHERIT %I', tbl, tbl||'_tpl');
 
 	-- set the trigger
 	EXECUTE format('CREATE TRIGGER trig_recall AFTER INSERT OR UPDATE OR DELETE ON %I
-		FOR EACH ROW EXECUTE PROCEDURE trigfn_recall()', tblName);
+		FOR EACH ROW EXECUTE PROCEDURE trigfn_recall()', tbl);
 
 	-- add config table entry
-	INSERT INTO _recall_config (table_name, backlog) VALUES (tblName, backlogInterval);
+	INSERT INTO _recall_config (tblid, backlog, pkey_cols) VALUES (tbl, backlogInterval, pkeyCols);
 
-	-- TODO add current database state
+	-- TODO insert current database state into the log table
 END;
 $$ LANGUAGE plpgsql;
 
@@ -45,20 +51,20 @@ $$ LANGUAGE plpgsql;
 --
 -- uninstaller function
 --
-CREATE FUNCTION disable_recall(tblName TEXT) RETURNS void AS $$
+CREATE FUNCTION disable_recall(tbl REGCLASS) RETURNS void AS $$
 BEGIN
 	-- remove inheritance
-	EXECUTE format('ALTER TABLE %I NO INHERIT %I', tblName, tblName||'_tpl');
+	EXECUTE format('ALTER TABLE %I NO INHERIT %I', tbl, tbl||'_tpl');
 
 	-- drop extra tables
-	EXECUTE format('DROP TABLE %I', tblName||'_log');
-	EXECUTE format('DROP TABLE %I', tblName||'_tpl');
+	EXECUTE format('DROP TABLE %I', tbl||'_log');
+	EXECUTE format('DROP TABLE %I', tbl||'_tpl');
 
 	-- delete trigger
-	EXECUTE format('DROP TRIGGER trig_recall ON %I', tblName);
+	EXECUTE format('DROP TRIGGER trig_recall ON %I', tbl);
 
 	-- remove config table entry
-	DELETE FROM _recall_config WHERE table_name = tblName;
+	DELETE FROM _recall_config WHERE tblid = tbl;
 END;
 $$ LANGUAGE plpgsql;
 
@@ -75,17 +81,8 @@ DECLARE
 	v TEXT;
 BEGIN
 	IF TG_OP IN ('UPDATE', 'DELETE') THEN
-		-- get primary key columns (TODO move the information_schema stuff into installer function)
-		IF TG_NARGS > 0 THEN
-			-- Use the columns given as trigger arguments
-			pkeyCols = TG_ARGV;
-		ELSE
-			-- fetch primary keys from the table schema (source: https://wiki.postgresql.org/wiki/Retrieve_primary_key_columns )
-			SELECT ARRAY(
-				SELECT a.attname INTO pkeyCols FROM pg_index i JOIN pg_attribute a ON (a.attrelid = i.indrelid AND a.attnum = ANY(i.indkey))
-				WHERE i.indrelid = TG_RELID AND i.indisprimary
-			);
-		END IF;
+		-- Get the primary key columns from the config table
+		SELECT pkey_cols INTO pkeyCols FROM _recall_config WHERE tblid = TG_RELID;
 
 		-- build WHERE clauses in the form of 'pkeyCol = OLD.pkeyCol' for each of the primary key columns
 		-- (they will later be joined with ' AND ' inbetween
