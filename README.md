@@ -135,4 +135,4 @@ License
 This project is licensed under the terms of the PostgreSQL license (see the COPYING file for details).
 
 [1]: http://www.postgresql.org/docs/current/static/ddl-inherit.html
-[2]:
+[2]: https://github.com/mreithub/pg_recall/issues
