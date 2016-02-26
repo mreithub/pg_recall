@@ -17,6 +17,8 @@ SELECT pg_catalog.pg_extension_config_dump('_recall_config', '');
 CREATE FUNCTION enable_recall(tbl REGCLASS, backlogInterval INTERVAL) RETURNS VOID AS $$
 DECLARE
 	pkeyCols name[];
+	pkeysEscaped text[]; -- list of escaped primary key column names (can be joined to a string using array_to_string(pkeysEscaped, ','))
+	k name;
 BEGIN
 	-- fetch primary keys from the table schema (source: https://wiki.postgresql.org/wiki/Retrieve_primary_key_columns )
 	SELECT ARRAY(
@@ -24,14 +26,22 @@ BEGIN
 		WHERE  i.indrelid = tbl AND i.indisprimary
 	);
 
+	-- init pkeysEscaped
+	FOREACH k IN ARRAY pkeyCols
+	LOOP
+		pkeysEscaped = array_append(pkeysEscaped, format('%I', k));
+	END LOOP;
+
+
 	-- create the _tpl table (without constraints)
 	EXECUTE format('CREATE TABLE %I (LIKE %I)', tbl||'_tpl', tbl);
 
 	-- create the _log table
 	EXECUTE format('CREATE TABLE %I (
 		_log_start_ts TIMESTAMPTZ NOT NULL DEFAULT now(),
-		_log_end_ts TIMESTAMPTZ
-	) INHERITS (%I)', tbl||'_log', tbl||'_tpl');
+		_log_end_ts TIMESTAMPTZ,
+		PRIMARY KEY (%s, _log_start_ts)
+	) INHERITS (%I)', tbl||'_log', array_to_string(pkeysEscaped, ', '), tbl||'_tpl');
 
 	-- make the _tpl table the default of the data table
 	EXECUTE format('ALTER TABLE %I INHERIT %I', tbl, tbl||'_tpl');
@@ -51,7 +61,7 @@ $$ LANGUAGE plpgsql;
 --
 -- uninstaller function
 --
-CREATE FUNCTION disable_recall(tbl REGCLASS) RETURNS void AS $$
+CREATE FUNCTION disable_recall(tbl REGCLASS) RETURNS VOID AS $$
 BEGIN
 	-- remove inheritance
 	EXECUTE format('ALTER TABLE %I NO INHERIT %I', tbl, tbl||'_tpl');
