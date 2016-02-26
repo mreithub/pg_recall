@@ -14,7 +14,7 @@ SELECT pg_catalog.pg_extension_config_dump('_recall_config', '');
 --
 -- installer function
 -- 
-CREATE FUNCTION enable_recall(tbl REGCLASS, backlogInterval INTERVAL) RETURNS VOID AS $$
+CREATE FUNCTION recall_enable(tbl REGCLASS, backlogInterval INTERVAL) RETURNS VOID AS $$
 DECLARE
 	pkeyCols name[];
 	pkeysEscaped text[]; -- list of escaped primary key column names (can be joined to a string using array_to_string(pkeysEscaped, ','))
@@ -48,7 +48,7 @@ BEGIN
 
 	-- set the trigger
 	EXECUTE format('CREATE TRIGGER trig_recall AFTER INSERT OR UPDATE OR DELETE ON %I
-		FOR EACH ROW EXECUTE PROCEDURE trigfn_recall()', tbl);
+		FOR EACH ROW EXECUTE PROCEDURE recall_trigfn()', tbl);
 
 	-- add config table entry
 	INSERT INTO _recall_config (tblid, backlog, pkey_cols) VALUES (tbl, backlogInterval, pkeyCols);
@@ -61,7 +61,7 @@ $$ LANGUAGE plpgsql;
 --
 -- uninstaller function
 --
-CREATE FUNCTION disable_recall(tbl REGCLASS) RETURNS VOID AS $$
+CREATE FUNCTION recall_disable(tbl REGCLASS) RETURNS VOID AS $$
 BEGIN
 	-- remove inheritance
 	EXECUTE format('ALTER TABLE %I NO INHERIT %I', tbl, tbl||'_tpl');
@@ -81,7 +81,7 @@ $$ LANGUAGE plpgsql;
 --
 -- Trigger function
 --
-CREATE OR REPLACE FUNCTION trigfn_recall() RETURNS TRIGGER AS $$
+CREATE OR REPLACE FUNCTION recall_trigfn() RETURNS TRIGGER AS $$
 DECLARE
 	pkeyCols TEXT[];
 	pkeys TEXT[];
@@ -119,6 +119,26 @@ BEGIN
 			array_to_string(vals, ', '));
 	END IF;
 	RETURN new;
+END;
+$$ LANGUAGE plpgsql;
+
+
+--
+-- Cleanup function (returns the number of deleted rows)
+--
+CREATE FUNCTION recall_cleanup(tbl REGCLASS) RETURNS INTEGER AS $$
+DECLARE
+	backlog INTERVAL;
+	rc INTEGER;
+BEGIN
+	-- get the backlog interval
+	SELECT c.backlog INTO backlog FROM _recall_config c WHERE tblId = tbl;
+
+	-- Remove old entries
+	EXECUTE format('DELETE FROM %I WHERE _log_end_ts < now() - $1', tbl||'_log') USING backlog;
+
+	GET DIAGNOSTICS rc = ROW_COUNT;
+	RETURN rc;
 END;
 $$ LANGUAGE plpgsql;
 
