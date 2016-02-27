@@ -96,9 +96,9 @@ BEGIN
 
 		-- build WHERE clauses in the form of 'pkeyCol = OLD.pkeyCol' for each of the primary key columns
 		-- (they will later be joined with ' AND ' inbetween
-		FOREACH k IN ARRAY pkeyCols
+		FOREACH col IN ARRAY pkeyCols
 		LOOP
-			pkeys = array_append(pkeys, format('%I = $1.%I', k, k));
+			pkeys = array_append(pkeys, format('%I = $1.%I', col, col));
 		END LOOP;
 
 		-- mark old log entries as outdated
@@ -107,7 +107,7 @@ BEGIN
 	IF TG_OP IN ('INSERT', 'UPDATE') THEN
 		-- get all columns of the _tpl table and put them into the cols and vals arrays
 		-- (source: http://dba.stackexchange.com/a/22420/85760 )
-		FOR col IN SELECT attname FROM pg_attribute WHERE attrelid = (TG_TABLE_NAME||'_tpl')::regclass AND attnum > 0 AND attisdropped = false;
+		FOR col IN SELECT attname FROM pg_attribute WHERE attrelid = (TG_TABLE_NAME||'_tpl')::regclass AND attnum > 0 AND attisdropped = false
 		LOOP
 			cols = array_append(cols, format('%I', col));
 			vals = array_append(vals, format('$1.%I', col));
