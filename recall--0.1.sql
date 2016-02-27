@@ -28,6 +28,11 @@ BEGIN
 		WHERE  i.indrelid = tbl AND i.indisprimary
 	);
 
+--	raise notice 'foo: %, %', pkeyCols, array_length(pkeyCols, 1);
+	IF cardinality(pkeyCols) = 0 THEN
+		RAISE EXCEPTION 'You need a primary key on your table if you want to use pg_recall (table: %)!', tbl;
+	END IF;
+
 	-- init pkeysEscaped
 	FOREACH k IN ARRAY pkeyCols
 	LOOP
