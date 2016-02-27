@@ -86,6 +86,12 @@ $$ LANGUAGE plpgsql;
 --
 CREATE FUNCTION recall_disable(tbl REGCLASS) RETURNS VOID AS $$
 BEGIN
+	-- remove config table entry (and raise an exception if there was none)
+	DELETE FROM _recall_config WHERE tblid = tbl;
+	IF NOT FOUND THEN
+		RAISE EXCEPTION 'The table "%" is not managed by pg_recall', tbl;
+	END IF;
+
 	-- remove inheritance
 	EXECUTE format('ALTER TABLE %I NO INHERIT %I', tbl, tbl||'_tpl');
 
@@ -95,9 +101,6 @@ BEGIN
 
 	-- delete trigger
 	EXECUTE format('DROP TRIGGER trig_recall ON %I', tbl);
-
-	-- remove config table entry
-	DELETE FROM _recall_config WHERE tblid = tbl;
 END;
 $$ LANGUAGE plpgsql;
 
