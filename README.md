@@ -80,15 +80,19 @@ As mentioned before, querying current data doesn't change, but if you want to ha
 
 Below are some common usage examples, but basically they boil down to adding the following query condition (`:ts` being the timestamp you want to query for):
 
-    ... AND _log_start_ts <= :ts AND COALESCE(now(), _log_end_ts) > :ts
+    ... AND _log_start_ts <= :ts AND (_log_end_ts IS NULL OR _log_end_ts > :ts)
 
 #### Querying for a key in the past
 
-TODO
+    SELECT * FROM my_table_log WHERE some_key = 'some_value' AND _log_start_ts <= :ts AND (_log_end_ts IS NULL OR _log_end_ts > :ts)
 
 #### Querying the complete past state of a table
 
-TODO
+    SELECT * FROM my_table_log WHERE _log_start_ts <= :ts AND (_log_end_ts IS NULL OR _log_end_ts > :ts)
+
+#### Listing all the changes to one key
+
+    SELECT * FROM my_table_log WHERE some_key = 'some value' ORDER BY start_ts DESC;
 
 ### Cleanup
 
