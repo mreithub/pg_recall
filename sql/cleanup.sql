@@ -18,6 +18,9 @@ CREATE TABLE config (
 );
 SELECT recall_enable('config', '2 hours');
 
+-- query the config table for completeness
+SELECT tblid, now() - ts AS ts, log_interval, last_cleanup, pkey_cols  from _recall_config;
+
 -- first batch (will end up being now() - 3 hours)
 INSERT INTO config (key, value) VALUES ('keyA', 'valA');
 INSERT INTO config (key, value) VALUES ('keyB', 'valB');
@@ -62,5 +65,8 @@ UPDATE config_log SET _log_start = _log_start - interval '1 minute', _log_end = 
 SELECT recall_cleanup('config');
 SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log ORDER BY _log_start, key;
 
+
+-- check if the last_cleanup field was updated correctly (expects to return '@ 0')
+SELECT now() - last_cleanup FROM _recall_config;
 
 ROLLBACK;

@@ -4,6 +4,7 @@ CREATE TABLE _recall_config (
 	tblid REGCLASS NOT NULL PRIMARY KEY,
 	ts TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	log_interval INTERVAL,
+	last_cleanup TIMESTAMPTZ,
 	pkey_cols name[] NOT NULL
 );
 
@@ -142,8 +143,9 @@ DECLARE
 	logInterval INTERVAL;
 	rc INTEGER;
 BEGIN
-	-- get the log interval
-	SELECT log_interval INTO logInterval FROM _recall_config c WHERE tblId = tbl;
+	-- get the log interval (and update last_cleanup while we're at it)
+	UPDATE _recall_config SET last_cleanup = now() WHERE tblId = tbl RETURNING log_interval INTO logInterval;
+	--SELECT log_interval INTO logInterval FROM _recall_config c WHERE tblId = tbl;
 
 	RAISE NOTICE 'recall: Cleaning up table %', tbl;
 	-- Remove old entries
