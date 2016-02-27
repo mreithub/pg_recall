@@ -1,3 +1,8 @@
+--
+-- This test creates a simple table and performs some INSERT/UPDATE/DELETE statements on it.
+-- After each of those statements it checks the contents of the config and the config_log tables
+--
+
 CREATE EXTENSION hstore;
 CREATE EXTENSION recall;
 
