@@ -11,9 +11,9 @@ What it was designed for
 
 The main goal of `pg_recall` is to provide a quick and transparent way to keep track of changes to user-edited data (to eliminate the risk of accidential deletion or modification and to provide a safe way for them to try out different settings while being able to revert to the old state if necessary).
 
-It allows to query the individual table rows or the entire table for arbitrary timestamps (within the `backlog` interval you specify for each table).
+It allows to query the individual table rows or the entire table for arbitrary timestamps (within the `logInterval` you specify for each table).
 
-You could also see `pg_recall` as one specific implementation (the one as PostgreSQL extension) of the general `*_recall` idea.  
+You could also see `pg_recall` as the reference implementation (the one as PostgreSQL extension) of the general `*_recall` idea.  
 Apart from using (the convenient, but not mandatory) table inheritance, it should be applicable for a range of different DBMS and higher level frameworks (such as JPA/Hibernate or other ORMs), as long as they have half-decent row level trigger support.  
 I'd love to see ports for other databases.
 
@@ -72,11 +72,11 @@ Apart from a primary key (which contains the same columns as the one in the data
 
 That means that primary key lookups are reasonably fast, but if you plan on doing more complex things on a regular basis, you might want to add your own private keys.
 
-It also means it won't stop you from deleting previously referenced data (let's say you have an `account` and a `contract` table (and each contract references the account that created it). If you enable `pg_recall` on contract but not on account (or the backlog time in account is shorter than that in contract), it's possible you have references to account IDs in contract_log that point to data that's been deleted from account and are therefore not restorable).
+It also means it won't stop you from deleting previously referenced data (let's say you have an `account` and a `contract` table (and each contract references the account that created it). If you enable `pg_recall` on contract but not on account (or the log interval in account is shorter than that in contract), it's possible you have references to account IDs in contract_log that point to data that's been deleted from account and are therefore not restorable).
 
 ### Querying historic data
 
-As mentioned before, querying current data doesn't change, but if you want to have a look at past records (within the `backlog` of course), you have to query the corresponding `_log` table.
+As mentioned before, querying current data doesn't change, but if you want to have a look at past records (within the `logInterval` of course), you have to query the corresponding `_log` table.
 
 Below are some common usage examples, but basically they boil down to adding the following query condition (`:ts` being the timestamp you want to query for):
 
@@ -100,7 +100,7 @@ Every now and then you should run `recall_cleanup('tableName')` or the more conv
 
     SELECT recall_cleanup_all();
 
-It will cycle through all managed log tables and remove records with a `_log_end` before `now() - backlog` (backlog is the interval you specified as second parameter of `recall_enable()`).
+It will cycle through all managed log tables and remove records with a `_log_end` before `now() - logInterval` (logInterval is the interval you specified as second parameter of `recall_enable()`).
 
 It is up to you how you want to run this cleanup job. If you don't run it, the log tables will simply keep growing. Depending on your application a simple background task might do the trick. Alternatively you could write a cron job.
 
@@ -122,6 +122,7 @@ Caveats
 - The cleanup function has to be run manually (e.g. using a background task in your app or a cronjob)
 - You shouldn't use it on tables that contain columns that change a lot (as it creates copies of the whole record every time it changes). You might want to think about splitting those columns to a separate table in that case.
 - For the same reason it's not well suited for tables with large data blobs.
+- It doesn't protect the log table, so it won't protect you from accidentally (or an adversary from intentionally) tampering with the log tables.
 - You might wanna think twice before changing the primary key of a table.
 - **`pg_recall` does NOT replace database backups, but that should go without saying.**
 

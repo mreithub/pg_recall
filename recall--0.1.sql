@@ -3,7 +3,7 @@
 CREATE TABLE _recall_config (
 	tblid REGCLASS NOT NULL PRIMARY KEY,
 	ts TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-	backlog INTERVAL,
+	log_interval INTERVAL,
 	pkey_cols name[] NOT NULL
 );
 
@@ -14,7 +14,7 @@ SELECT pg_catalog.pg_extension_config_dump('_recall_config', '');
 --
 -- installer function
 -- 
-CREATE FUNCTION recall_enable(tbl REGCLASS, backlogInterval INTERVAL) RETURNS VOID AS $$
+CREATE FUNCTION recall_enable(tbl REGCLASS, logInterval INTERVAL) RETURNS VOID AS $$
 DECLARE
 	pkeyCols name[];
 	pkeysEscaped text[]; -- list of escaped primary key column names (can be joined to a string using array_to_string(pkeysEscaped, ','))
@@ -51,7 +51,7 @@ BEGIN
 		FOR EACH ROW EXECUTE PROCEDURE recall_trigfn()', tbl);
 
 	-- add config table entry
-	INSERT INTO _recall_config (tblid, backlog, pkey_cols) VALUES (tbl, backlogInterval, pkeyCols);
+	INSERT INTO _recall_config (tblid, log_interval, pkey_cols) VALUES (tbl, logInterval, pkeyCols);
 
 	-- TODO insert current database state into the log table
 END;
@@ -128,15 +128,15 @@ $$ LANGUAGE plpgsql;
 --
 CREATE FUNCTION recall_cleanup(tbl REGCLASS) RETURNS INTEGER AS $$
 DECLARE
-	backlog INTERVAL;
+	logInterval INTERVAL;
 	rc INTEGER;
 BEGIN
-	-- get the backlog interval
-	SELECT c.backlog INTO backlog FROM _recall_config c WHERE tblId = tbl;
+	-- get the log interval
+	SELECT log_interval INTO logInterval FROM _recall_config c WHERE tblId = tbl;
 
 	RAISE NOTICE 'recall: Cleaning up table %', tbl;
 	-- Remove old entries
-	EXECUTE format('DELETE FROM %I WHERE _log_end < now() - $1', tbl||'_log') USING backlog;
+	EXECUTE format('DELETE FROM %I WHERE _log_end < now() - $1', tbl||'_log') USING logInterval;
 
 	GET DIAGNOSTICS rc = ROW_COUNT;
 	RETURN rc;

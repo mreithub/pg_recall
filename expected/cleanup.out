@@ -1,5 +1,5 @@
 --
--- Creates a simple data table with the very short backlog of only '2 hours' and performs some CRUD operations on it.
+-- Creates a simple data table with the very short log interval of only '2 hours' and performs some CRUD operations on it.
 -- Every now and then it'll call 'recall_cleanup_all() and check if only data that's too old 
 --
 -- To have somewhat predictable output, we'll run the whole test inside a transaction (which causes now() to always return the same value).
