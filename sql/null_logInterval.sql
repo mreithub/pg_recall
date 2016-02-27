@@ -3,8 +3,11 @@
 -- by cleanup() calls
 --
 
+BEGIN;
+CREATE EXTENSION recall;
+
 CREATE TABLE config (
-	name VARCHAR(100) PRIMARY KEY,
+	key VARCHAR(100) PRIMARY KEY,
 	value TEXT NOT NULL
 );
 
@@ -14,8 +17,12 @@ SELECT recall_enable('config', NULL);
 -- run some statements
 INSERT INTO config VALUES ('foo', 'bar');
 INSERT INTO config VALUES ('true', false);
-INSERT INTO config VALUES ('answer', 42);
 
+-- 'wait' an hour
+UPDATE config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
+
+-- run some more statements
+INSERT INTO config VALUES ('answer', 42);
 UPDATE config SET value=true WHERE key='true';
 
 
@@ -25,3 +32,4 @@ SELECT recall_cleanup('config');
 -- and check the log data (there should be 4 rows)
 SELECT key, value, _log_end IS NULL AS is_current FROM config_log;
 
+ROLLBACK;

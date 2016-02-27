@@ -5,6 +5,9 @@
 -- To have somewhat predictable output, we'll run the whole test inside a transaction (which causes now() to always return the same value).
 -- To simulate different batches of changes, log entries will be pushed back by an hour between changes.
 --
+-- start transaction
+BEGIN;
+CREATE EXTENSION recall;
 -- Create simple key/value table
 CREATE TABLE config (
 	key VARCHAR(100) NOT NULL PRIMARY KEY,
@@ -16,8 +19,6 @@ SELECT recall_enable('config', '2 hours');
  
 (1 row)
 
--- start transaction
-BEGIN;
 -- first batch (will end up being now() - 3 hours)
 INSERT INTO config (key, value) VALUES ('keyA', 'valA');
 INSERT INTO config (key, value) VALUES ('keyB', 'valB');

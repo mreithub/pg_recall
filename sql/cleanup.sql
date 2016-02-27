@@ -6,15 +6,17 @@
 -- To simulate different batches of changes, log entries will be pushed back by an hour between changes.
 --
 
+-- start transaction
+BEGIN;
+
+CREATE EXTENSION recall;
+
 -- Create simple key/value table
 CREATE TABLE config (
 	key VARCHAR(100) NOT NULL PRIMARY KEY,
 	value TEXT NOT NULL
 );
 SELECT recall_enable('config', '2 hours');
-
--- start transaction
-BEGIN;
 
 -- first batch (will end up being now() - 3 hours)
 INSERT INTO config (key, value) VALUES ('keyA', 'valA');

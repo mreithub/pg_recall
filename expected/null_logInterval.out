@@ -2,18 +2,24 @@
 -- Creates a managed table with a NULL log interval and makes sure it's not affected 
 -- by cleanup() calls
 --
+BEGIN;
+CREATE EXTENSION recall;
 CREATE TABLE config (
-	name VARCHAR(100) PRIMARY KEY,
+	key VARCHAR(100) PRIMARY KEY,
 	value TEXT NOT NULL
 );
-ERROR:  relation "config" already exists
 SELECT recall_enable('config', NULL);
-ERROR:  relation "config_tpl" already exists
-CONTEXT:  SQL statement "CREATE TABLE config_tpl (LIKE config)"
-PL/pgSQL function recall_enable(regclass,interval) line 21 at EXECUTE
+ recall_enable 
+---------------
+ 
+(1 row)
+
 -- run some statements
 INSERT INTO config VALUES ('foo', 'bar');
 INSERT INTO config VALUES ('true', false);
+-- 'wait' an hour
+UPDATE config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
+-- run some more statements
 INSERT INTO config VALUES ('answer', 42);
 UPDATE config SET value=true WHERE key='true';
 -- cleanup (should return 0)
@@ -34,3 +40,4 @@ SELECT key, value, _log_end IS NULL AS is_current FROM config_log;
  true   | true  | t
 (4 rows)
 
+ROLLBACK;
