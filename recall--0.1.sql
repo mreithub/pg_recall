@@ -34,6 +34,15 @@ BEGIN
 		pkeysEscaped = array_append(pkeysEscaped, format('%I', k));
 	END LOOP;
 
+	-- update existing entry (and return if that was one)
+	UPDATE _recall_config SET log_interval = logInterval, pkey_cols = pkeyCols, last_cleanup = NULL WHERE tblid = tbl;
+	IF FOUND THEN
+		RAISE NOTICE 'recall_enable(%, %) called on an already managed table. Updating log_interval and pkey_cols, clearing last_cleanup', tbl, logInterval;
+		RETURN;
+	END IF;
+
+	-- add config table entry
+	INSERT INTO _recall_config (tblid, log_interval, pkey_cols) VALUES (tbl, logInterval, pkeyCols);
 
 	-- create the _tpl table (without constraints)
 	EXECUTE format('CREATE TABLE %I (LIKE %I)', tbl||'_tpl', tbl);
@@ -52,8 +61,6 @@ BEGIN
 	EXECUTE format('CREATE TRIGGER trig_recall AFTER INSERT OR UPDATE OR DELETE ON %I
 		FOR EACH ROW EXECUTE PROCEDURE recall_trigfn()', tbl);
 
-	-- add config table entry
-	INSERT INTO _recall_config (tblid, log_interval, pkey_cols) VALUES (tbl, logInterval, pkeyCols);
 
 	-- get list of columns and insert current database state into the log table
 	SELECT ARRAY(
