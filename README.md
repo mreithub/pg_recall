@@ -27,8 +27,8 @@ You need PostgreSQL (TODO: find out minimum version) and `hstore` (which is part
 Most of the code is pretty standard pl/pgsql code so it should be platform independent.
 
 ### Installation
-Right now `pg_recall` is in its early stages, so there's no installation script yet. 
-But installation isn't hard. Simply copy the `recall.control` and the `recall--0.1.sql` to your PostgreSQL extension directory (something like `/usr/share/postgresql/{version}/extension/`).
+
+The extension can be installed by issuing `make install` (you'll have to run that as root in most cases).
 
 After that the extension has to be enabled for each database you want to use it on (as I said, it depends on `hstore`):
 
