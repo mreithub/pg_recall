@@ -1,6 +1,6 @@
 default_version = '0.1'
 comment = 'Keeps track of changes to managed tables in a separate _log table'
 encoding = 'UTF-8'
-requires = 'hstore'
+requires = ''
 superuser = false
 

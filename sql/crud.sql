@@ -3,7 +3,6 @@
 -- After each of those statements it checks the contents of the config and the config_log tables
 --
 
-CREATE EXTENSION hstore;
 CREATE EXTENSION recall;
 
 -- we'll do all of this in a transaction to have somewhat predictable now() values

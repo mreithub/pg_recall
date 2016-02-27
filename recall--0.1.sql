@@ -78,17 +78,17 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
 --
 -- Trigger function
 --
-CREATE OR REPLACE FUNCTION recall_trigfn() RETURNS TRIGGER AS $$
+CREATE FUNCTION recall_trigfn() RETURNS TRIGGER AS $$
 DECLARE
 	pkeyCols TEXT[];
 	pkeys TEXT[];
-	cols TEXT[];
-	vals TEXT[];
-	k TEXT;
-	v TEXT;
+	cols TEXT[]; -- will be filled with escaped column names (in the same order as the vals below)
+	vals TEXT[]; -- will contain the equivalent of NEW.<colName> for each of the columns in the _tpl table
+	col TEXT; -- loop variable
 BEGIN
 	IF TG_OP IN ('UPDATE', 'DELETE') THEN
 		-- Get the primary key columns from the config table
@@ -105,18 +105,19 @@ BEGIN
 		EXECUTE format('UPDATE %I SET _log_end = now() WHERE %s AND _log_end IS NULL', TG_TABLE_NAME||'_log', array_to_string(pkeys, ' AND ')) USING OLD;
 	END IF;
 	IF TG_OP IN ('INSERT', 'UPDATE') THEN
-		-- construct the column and value strings
-		FOR k,v IN SELECT format('%I', key) AS k, format('%L', value) AS v FROM each(hstore(NEW))
+		-- get all columns of the _tpl table and put them into the cols and vals arrays
+		-- (source: http://dba.stackexchange.com/a/22420/85760 )
+		FOR col IN SELECT attname FROM pg_attribute WHERE attrelid = (TG_TABLE_NAME||'_tpl')::regclass AND attnum > 0 AND attisdropped = false;
 		LOOP
-			cols = array_append(cols, k);
-			vals = array_append(vals, v);
+			cols = array_append(cols, format('%I', col));
+			vals = array_append(vals, format('$1.%I', col));
 		END LOOP;
 
 		-- create the log entry
 		EXECUTE format('INSERT INTO %I (%s) VALUES (%s)',
 			TG_TABLE_NAME||'_log',
 			array_to_string(cols, ', '),
-			array_to_string(vals, ', '));
+			array_to_string(vals, ', ')) USING NEW;
 	END IF;
 	RETURN new;
 END;

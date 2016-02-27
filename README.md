@@ -22,7 +22,7 @@ Installation and Usage
 
 ### Requirements
 
-You need PostgreSQL (TODO: find out minimum version) and `hstore` (which is part of postgresql-contrib).
+All you should need is PostgreSQL (TODO: find out minimum version).
 
 Most of the code is pretty standard pl/pgsql code so it should be platform independent.
 
@@ -30,10 +30,9 @@ Most of the code is pretty standard pl/pgsql code so it should be platform indep
 
 The extension can be installed by issuing `make install` (you'll have to run that as root in most cases).
 
-After that the extension has to be enabled for each database you want to use it on (as I said, it depends on `hstore`):
+After that the extension has to be enabled for each database you want to use it on:
 
 ```sql
-CREATE EXTENSION IF NOT EXISTS hstore;
 CREATE EXTENSION IF NOT EXISTS recall;
 ```
 
