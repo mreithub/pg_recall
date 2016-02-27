@@ -1,0 +1,33 @@
+--
+-- Creates a table, inserts some data and only then calls recall_enable()
+-- Then checks if all the data has been copied to the _log table correctly
+--
+BEGIN;
+CREATE EXTENSION recall;
+-- create simple table
+CREATE TABLE config (
+	key VARCHAR(100) PRIMARY KEY,
+	value TEXT
+);
+-- fill it with some data
+INSERT INTO config VALUES ('key', 'value');
+INSERT INTO config VALUES ('hello', 'world');
+INSERT INTO config VALUES ('answer', 42);
+UPDATE config SET value = 'newValue' WHERE key = 'key';
+-- enable logging
+SELECT recall_enable('config', '1 day');
+ recall_enable 
+---------------
+ 
+(1 row)
+
+-- check the data
+SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log;
+  key   |  value   | _start | _end 
+--------+----------+--------+------
+ hello  | world    | @ 0    | 
+ answer | 42       | @ 0    | 
+ key    | newValue | @ 0    | 
+(3 rows)
+
+ROLLBACK;

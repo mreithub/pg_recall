@@ -18,6 +18,7 @@ CREATE FUNCTION recall_enable(tbl REGCLASS, logInterval INTERVAL) RETURNS VOID A
 DECLARE
 	pkeyCols name[];
 	pkeysEscaped text[]; -- list of escaped primary key column names (can be joined to a string using array_to_string(pkeysEscaped, ','))
+	cols text[];
 	k name;
 BEGIN
 	-- fetch primary keys from the table schema (source: https://wiki.postgresql.org/wiki/Retrieve_primary_key_columns )
@@ -53,7 +54,16 @@ BEGIN
 	-- add config table entry
 	INSERT INTO _recall_config (tblid, log_interval, pkey_cols) VALUES (tbl, logInterval, pkeyCols);
 
-	-- TODO insert current database state into the log table
+	-- get list of columns and insert current database state into the log table
+	SELECT ARRAY(
+		SELECT format('%I', attname) INTO cols FROM pg_attribute WHERE attrelid = (tbl||'_tpl')::regclass AND attnum > 0 AND attisdropped = false
+	);
+
+	EXECUTE format('INSERT INTO %I (%s) SELECT %s FROM %I',
+		tbl||'_log',
+		array_to_string(cols, ', '),
+		array_to_string(cols, ', '),
+		tbl);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -95,7 +105,7 @@ BEGIN
 		SELECT pkey_cols INTO pkeyCols FROM _recall_config WHERE tblid = TG_RELID;
 
 		-- build WHERE clauses in the form of 'pkeyCol = OLD.pkeyCol' for each of the primary key columns
-		-- (they will later be joined with ' AND ' inbetween
+		-- (they will later be joined with ' AND ' inbetween)
 		FOREACH col IN ARRAY pkeyCols
 		LOOP
 			pkeys = array_append(pkeys, format('%I = $1.%I', col, col));
@@ -144,6 +154,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+-- convenience cleanup function
 CREATE FUNCTION recall_cleanup_all() RETURNS VOID AS $$
 DECLARE
 	tbl REGCLASS;
