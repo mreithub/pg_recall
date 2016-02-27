@@ -1,0 +1,26 @@
+--
+-- This test represents q pretty minimal setup to trigger the now() issue
+-- (that prevents two or more changes to the same record within one transaction)
+--
+BEGIN;
+CREATE EXTENSION recall;
+-- create table
+CREATE TABLE foo (
+	id INTEGER NOT NULL PRIMARY KEY,
+	value TEXT NOT NULL
+);
+-- enable logging
+SELECT recall_enable('foo', null);
+ recall_enable 
+---------------
+ 
+(1 row)
+
+-- trigger the issue (by doing an insert and an update to the same record in the same transaction)
+INSERT INTO foo VALUES (1, 'hello');
+UPDATE foo SET value='world' WHERE id=1;
+ERROR:  duplicate key value violates unique constraint "foo_log_pkey"
+DETAIL:  Key (id, _log_start)=(1, Sat Feb 27 12:40:20.389163 2016 PST) already exists.
+CONTEXT:  SQL statement "INSERT INTO foo_log (id, value) VALUES ($1.id, $1.value)"
+PL/pgSQL function recall_trigfn() line 33 at EXECUTE
+ROLLBACK;
