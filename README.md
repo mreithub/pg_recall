@@ -62,13 +62,13 @@ The `_log` table  pretty much is created like this:
 
 ```SQL
 CREATE TABLE <name>_log (
-  _log_start_ts TIMESTAMPTZ NOT NULL DEFAULT now(),
-  _log_end_ts TIMESTAMPTZ,
-  PRIMARY KEY (<primary key cols of the original data table>, _log_start_ts)
+  _log_start TIMESTAMPTZ NOT NULL DEFAULT now(),
+  _log_end TIMESTAMPTZ,
+  PRIMARY KEY (<primary key cols of the original data table>, _log_start)
 ) INHERITS <name>_tpl;
 ```
 
-Apart from a primary key (which contains the same columns as the one in the data table but also adds `_log_start_ts`), no constraints are defined for the `_log` table (no foreign keys and no unique or check constraints).
+Apart from a primary key (which contains the same columns as the one in the data table but also adds `_log_start`), no constraints are defined for the `_log` table (no foreign keys and no unique or check constraints).
 
 That means that primary key lookups are reasonably fast, but if you plan on doing more complex things on a regular basis, you might want to add your own private keys.
 
@@ -80,15 +80,15 @@ As mentioned before, querying current data doesn't change, but if you want to ha
 
 Below are some common usage examples, but basically they boil down to adding the following query condition (`:ts` being the timestamp you want to query for):
 
-    ... AND _log_start_ts <= :ts AND (_log_end_ts IS NULL OR _log_end_ts > :ts)
+    ... AND _log_start <= :ts AND (_log_end IS NULL OR _log_end > :ts)
 
 #### Querying for a key in the past
 
-    SELECT * FROM my_table_log WHERE some_key = 'some_value' AND _log_start_ts <= :ts AND (_log_end_ts IS NULL OR _log_end_ts > :ts)
+    SELECT * FROM my_table_log WHERE some_key = 'some_value' AND _log_start <= :ts AND (_log_end IS NULL OR _log_end > :ts)
 
 #### Querying the complete past state of a table
 
-    SELECT * FROM my_table_log WHERE _log_start_ts <= :ts AND (_log_end_ts IS NULL OR _log_end_ts > :ts)
+    SELECT * FROM my_table_log WHERE _log_start <= :ts AND (_log_end IS NULL OR _log_end > :ts)
 
 #### Listing all the changes to one key
 
@@ -100,7 +100,7 @@ Every now and then you should run `recall_cleanup('tableName')` or the more conv
 
     SELECT recall_cleanup_all();
 
-It will cycle through all managed log tables and remove records with a `_log_end_ts` before `now() - backlog` (backlog is the interval you specified as second parameter of `recall_enable()`).
+It will cycle through all managed log tables and remove records with a `_log_end` before `now() - backlog` (backlog is the interval you specified as second parameter of `recall_enable()`).
 
 It is up to you how you want to run this cleanup job. If you don't run it, the log tables will simply keep growing. Depending on your application a simple background task might do the trick. Alternatively you could write a cron job.
 

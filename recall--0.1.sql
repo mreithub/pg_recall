@@ -38,9 +38,9 @@ BEGIN
 
 	-- create the _log table
 	EXECUTE format('CREATE TABLE %I (
-		_log_start_ts TIMESTAMPTZ NOT NULL DEFAULT now(),
-		_log_end_ts TIMESTAMPTZ,
-		PRIMARY KEY (%s, _log_start_ts)
+		_log_start TIMESTAMPTZ NOT NULL DEFAULT now(),
+		_log_end TIMESTAMPTZ,
+		PRIMARY KEY (%s, _log_start)
 	) INHERITS (%I)', tbl||'_log', array_to_string(pkeysEscaped, ', '), tbl||'_tpl');
 
 	-- make the _tpl table the default of the data table
@@ -102,7 +102,7 @@ BEGIN
 		END LOOP;
 
 		-- mark old log entries as outdated
-		EXECUTE format('UPDATE %I SET _log_end_ts = now() WHERE %s AND _log_end_ts IS NULL', TG_TABLE_NAME||'_log', array_to_string(pkeys, ' AND ')) USING OLD;
+		EXECUTE format('UPDATE %I SET _log_end = now() WHERE %s AND _log_end IS NULL', TG_TABLE_NAME||'_log', array_to_string(pkeys, ' AND ')) USING OLD;
 	END IF;
 	IF TG_OP IN ('INSERT', 'UPDATE') THEN
 		-- construct the column and value strings
@@ -136,7 +136,7 @@ BEGIN
 
 	RAISE NOTICE 'recall: Cleaning up table %', tbl;
 	-- Remove old entries
-	EXECUTE format('DELETE FROM %I WHERE _log_end_ts < now() - $1', tbl||'_log') USING backlog;
+	EXECUTE format('DELETE FROM %I WHERE _log_end < now() - $1', tbl||'_log') USING backlog;
 
 	GET DIAGNOSTICS rc = ROW_COUNT;
 	RETURN rc;

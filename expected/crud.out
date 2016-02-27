@@ -5,7 +5,7 @@
 CREATE EXTENSION hstore;
 CREATE EXTENSION recall;
 -- we'll do all of this in a transaction to have somewhat predictable now() values
--- whenever we UPDATE values, we'll first move _log_start_ts and _log_end_ts one hour in the past in the log table.
+-- whenever we UPDATE values, we'll first move _log_start and _log_end one hour in the past in the log table.
 BEGIN;
 -- create a simple key/value table
 CREATE TABLE config (
@@ -33,7 +33,7 @@ SELECT key, value FROM config ORDER BY key;
  some_number      | 42
 (2 rows)
 
-SELECT key, value, now() - _log_start_ts AS _start, now() - _log_end_ts AS _end FROM config_log ORDER BY _log_start_ts, key;
+SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log ORDER BY _log_start, key;
        key        | value | _start | _end 
 ------------------+-------+--------+------
  enable_something | true  | @ 0    | 
@@ -41,7 +41,7 @@ SELECT key, value, now() - _log_start_ts AS _start, now() - _log_end_ts AS _end 
 (2 rows)
 
 -- update value (to work around the now() issue manually set the log values back one hour)
-UPDATE config_log SET _log_start_ts = _log_start_ts - interval '1 hour', _log_end_ts = _log_end_ts - interval '1 hour';
+UPDATE config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
 UPDATE config SET value = 'false' WHERE key = 'enable_something';
 -- check data and log tables. The log table...
 --  - now has three entries (two for the 'enable_something' key)
@@ -54,7 +54,7 @@ SELECT key, value FROM config ORDER BY key;
  some_number      | 42
 (2 rows)
 
-SELECT key, value, now() - _log_start_ts AS _start, now() - _log_end_ts AS _end FROM config_log ORDER BY _log_start_ts, key;
+SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log ORDER BY _log_start, key;
        key        | value |  _start  | _end 
 ------------------+-------+----------+------
  enable_something | true  | @ 1 hour | @ 0
@@ -63,7 +63,7 @@ SELECT key, value, now() - _log_start_ts AS _start, now() - _log_end_ts AS _end 
 (3 rows)
 
 -- do a bulk key update (the equivalent to deleting all entries and creating new ones)
-UPDATE config_log SET _log_start_ts = _log_start_ts - interval '1 hour', _log_end_ts = _log_end_ts - interval '1 hour';
+UPDATE config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
 UPDATE config SET key = key||'_';
 SELECT key, value FROM config ORDER BY key;
         key        | value 
@@ -72,7 +72,7 @@ SELECT key, value FROM config ORDER BY key;
  some_number_      | 42
 (2 rows)
 
-SELECT key, value, now() - _log_start_ts AS _start, now() - _log_end_ts AS _end FROM config_log ORDER BY _log_start_ts, key;
+SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log ORDER BY _log_start, key;
         key        | value |  _start   |   _end   
 -------------------+-------+-----------+----------
  enable_something  | true  | @ 2 hours | @ 1 hour
@@ -83,7 +83,7 @@ SELECT key, value, now() - _log_start_ts AS _start, now() - _log_end_ts AS _end 
 (5 rows)
 
 -- delete an entry (again after pushing log entries back one hour)
-UPDATE config_log SET _log_start_ts = _log_start_ts - interval '1 hour', _log_end_ts = _log_end_ts - interval '1 hour';
+UPDATE config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
 DELETE FROM config WHERE key = 'some_number_';
 SELECT key, value FROM config ORDER BY key;
         key        | value 
@@ -91,7 +91,7 @@ SELECT key, value FROM config ORDER BY key;
  enable_something_ | false
 (1 row)
 
-SELECT key, value, now() - _log_start_ts AS _start, now() - _log_end_ts AS _end FROM config_log ORDER BY _log_start_ts, key;
+SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log ORDER BY _log_start, key;
         key        | value |  _start   |   _end    
 -------------------+-------+-----------+-----------
  enable_something  | true  | @ 3 hours | @ 2 hours
@@ -102,7 +102,7 @@ SELECT key, value, now() - _log_start_ts AS _start, now() - _log_end_ts AS _end 
 (5 rows)
 
 -- query the log table for the current state (for an easy way to compare it to the data table)
-SELECT key, value FROM config_log WHERE _log_start_ts <= now() AND (_log_end_ts IS NULL OR _log_end_ts > now()) ORDER BY key;
+SELECT key, value FROM config_log WHERE _log_start <= now() AND (_log_end IS NULL OR _log_end > now()) ORDER BY key;
         key        | value 
 -------------------+-------
  enable_something_ | false
@@ -115,7 +115,7 @@ SELECT key, value FROM config ORDER BY key;
 (1 row)
 
 -- query the log table for the state of one hour ago:
-SELECT key, value FROM config_log WHERE _log_start_ts <= now() - interval '1 hour' AND (_log_end_ts IS NULL OR _log_end_ts > now() - interval '1 hour') ORDER BY key;
+SELECT key, value FROM config_log WHERE _log_start <= now() - interval '1 hour' AND (_log_end IS NULL OR _log_end > now() - interval '1 hour') ORDER BY key;
         key        | value 
 -------------------+-------
  enable_something_ | false
@@ -123,7 +123,7 @@ SELECT key, value FROM config_log WHERE _log_start_ts <= now() - interval '1 hou
 (2 rows)
 
 -- query the log table for the state of one hour and one minute ago:
-SELECT key, value FROM config_log WHERE _log_start_ts <= now() - interval '61 minutes' AND (_log_end_ts IS NULL OR _log_end_ts > now() - interval '61 minutes') ORDER BY key;
+SELECT key, value FROM config_log WHERE _log_start <= now() - interval '61 minutes' AND (_log_end IS NULL OR _log_end > now() - interval '61 minutes') ORDER BY key;
        key        | value 
 ------------------+-------
  enable_something | false
@@ -131,7 +131,7 @@ SELECT key, value FROM config_log WHERE _log_start_ts <= now() - interval '61 mi
 (2 rows)
 
 -- list all the changes to the 'enable_something' record
-SELECT key, value, now() - _log_start_ts AS _start, now() - _log_end_ts AS _end FROM config_log WHERE key = 'enable_something' ORDER BY _log_start_ts, key;
+SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log WHERE key = 'enable_something' ORDER BY _log_start, key;
        key        | value |  _start   |   _end    
 ------------------+-------+-----------+-----------
  enable_something | true  | @ 3 hours | @ 2 hours
