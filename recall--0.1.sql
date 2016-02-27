@@ -3,7 +3,7 @@
 CREATE TABLE _recall_config (
 	tblid REGCLASS NOT NULL PRIMARY KEY,
 	ts TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-	backlog INTERVAL NOT NULL,
+	backlog INTERVAL,
 	pkey_cols name[] NOT NULL
 );
 
