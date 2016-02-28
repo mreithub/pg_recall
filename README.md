@@ -40,7 +40,7 @@ CREATE EXTENSION IF NOT EXISTS recall;
 
 As there are some resource impacts to using `pg_recall`, you have to enable it for each table you want to use it on:
 
-    SELECT recall_enable('tableName', 'retain_interval');
+    SELECT recall_enable('tableName', 'log_interval');
 
 so for example
 
@@ -49,6 +49,8 @@ so for example
 After that a trigger has been added to your `accounts` table and all changes will be logged to the automatically created `accounts_log` table.
 
 You can work with your data as you did before, no changes to the CRUD queries are necessary.
+
+And if you want to change the log interval later on, simply invoke `recall_enable()` again (with the new interval of course). This will also update the cached primary key columns for that table and will reset the `last_cleanup` field to NULL.
 
 #### What happens behind the scenes?
 
@@ -131,12 +133,27 @@ Wanna help?
 
 Have a look at the [github issues page][2] and feel free to issue pull requests.
 
-Also, if you plan on porting recall to another database/framework, let me know.
+If you plan on porting recall to another database/framework, let me know.
+
+### Project structure
+
+`pg_recall` tries to follow the generic structure of PostgreSQL Extensions.  
+Read the [Extension manual][3] and the [Extension Build Infrastructure][4] for further details.
+
+- `expected/*`: contains the expected output of the regression tests
+- `sql/*`: contains the regression tests
+- `recall--0.9.sql`: the actual implementation
+- `recall.control`: extension control file
+- `Makefile`: PGXS make file (noteworthy targets: `make install` and `make installcheck` to run the regression tests)
+- `README.md`: this file
+- `COPYING`: license file
 
 License
 -------
 
-This project is licensed under the terms of the PostgreSQL license (see the COPYING file for details).
+This project is licensed under the terms of the PostgreSQL license (which is similar to the MIT license; see the COPYING file for details).
 
 [1]: http://www.postgresql.org/docs/current/static/ddl-inherit.html
 [2]: https://github.com/mreithub/pg_recall/issues
+[3]:http://www.postgresql.org/docs/9.4/static/extend-extensions.html
+[4]: http://www.postgresql.org/docs/9.1/static/extend-pgxs.html
