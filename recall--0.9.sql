@@ -116,6 +116,10 @@ DECLARE
 	vals TEXT[]; -- will contain the equivalent of NEW.<colName> for each of the columns in the _tpl table
 	col TEXT; -- loop variable
 BEGIN
+	if TG_OP = 'UPDATE' AND OLD = NEW THEN
+		RAISE INFO 'pg_recall: row unchanged, no need to write to log';
+		RETURN NEW;
+	END IF;
 	IF TG_OP IN ('UPDATE', 'DELETE') THEN
 		-- Get the primary key columns from the config table
 		SELECT pkey_cols INTO pkeyCols FROM _recall_config WHERE tblid = TG_RELID;

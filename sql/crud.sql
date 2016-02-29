@@ -35,6 +35,9 @@ SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM c
 UPDATE config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
 UPDATE config SET value = 'false' WHERE key = 'enable_something';
 
+-- if we didn't check for duplicates, this would fail (due to the same record being logged twice at the same time)
+UPDATE config SET value = 'false' WHERE key = 'enable_something';
+
 -- check data and log tables. The log table...
 --  - now has three entries (two for the 'enable_something' key)
 --  - start is '@ 0' for the new log entry and '1 hour' for the others
