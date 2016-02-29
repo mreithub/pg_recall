@@ -5,6 +5,8 @@ pg_recall
 
 For CRUD queries (`SELECT`, `INSERT`, `UPDATE` and `DELETE`) this works transparently. Schema changes have to be adapted though.
 
+To see it in action, have a look at the [`examples/`][5] directory.
+
 
 What it was designed for
 --------
@@ -142,6 +144,7 @@ Read the [Extension manual][3] and the [Extension Build Infrastructure][4] for f
 
 - `expected/*`: contains the expected output of the regression tests
 - `sql/*`: contains the regression tests
+- `examples/`: example projects
 - `recall--0.9.sql`: the actual implementation
 - `recall.control`: extension control file
 - `Makefile`: PGXS make file (noteworthy targets: `make install` and `make installcheck` to run the regression tests)
@@ -157,3 +160,4 @@ This project is licensed under the terms of the PostgreSQL license (which is sim
 [2]: https://github.com/mreithub/pg_recall/issues
 [3]:http://www.postgresql.org/docs/9.4/static/extend-extensions.html
 [4]: http://www.postgresql.org/docs/9.1/static/extend-pgxs.html
+[5]: examples/
