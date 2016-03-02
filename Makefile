@@ -1,6 +1,6 @@
 MODULES = 
 EXTENSION = recall
-DATA = recall--0.9.sql
+DATA = recall--0.9.1.sql recall--0.9--0.9.1.sql
 #DOCS = README.md
 REGRESS = crud cleanup copy_data duplicate_enable duplicate_disable missing_primarykey null_logInterval
 REGRESS_OPTS = --load-extension recall

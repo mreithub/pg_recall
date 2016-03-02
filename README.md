@@ -15,6 +15,8 @@ The main goal of `pg_recall` is to provide a quick and transparent way to keep t
 
 It allows to query the individual table rows or the entire table for arbitrary timestamps (within the `logInterval` you specify for each table).
 
+You could think of it as kind of a safety net for you and your customers (but NOT as a replacement for backups)
+
 You could also see `pg_recall` as the reference implementation (the one as PostgreSQL extension) of the general `*_recall` idea.  
 Apart from using (the convenient, but not mandatory) table inheritance, it should be applicable for a range of different DBMS and higher level frameworks (such as JPA/Hibernate or other ORMs), as long as they have half-decent row level trigger support.  
 I'd love to see ports for other databases.
@@ -24,7 +26,7 @@ Installation and Usage
 
 ### Requirements
 
-All you should need is PostgreSQL (TODO: find out minimum version).
+All you should need is PostgreSQL (9.1 or newer if you want to use `CREATE EXTENSION`, for older versions you'll have to load the script manually) with `plpgsql` enabled
 
 Most of the code is pretty standard pl/pgsql code so it should be platform independent.
 
@@ -145,7 +147,8 @@ Read the [Extension manual][3] and the [Extension Build Infrastructure][4] for f
 - `expected/*`: contains the expected output of the regression tests
 - `sql/*`: contains the regression tests
 - `examples/`: example projects
-- `recall--0.9.sql`: the actual implementation
+- `recall--0.9.1.sql`: the actual implementation
+- `recall--0.9--0.9.1.sql`: update script(s)
 - `recall.control`: extension control file
 - `Makefile`: PGXS make file (noteworthy targets: `make install` and `make installcheck` to run the regression tests)
 - `README.md`: this file
