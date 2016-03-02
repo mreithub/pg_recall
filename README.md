@@ -26,7 +26,7 @@ Installation and Usage
 
 ### Requirements
 
-All you should need is PostgreSQL (9.1 or newer if you want to use `CREATE EXTENSION`, for older versions you'll have to load the script manually) with `plpgsql` enabled
+All you should need is PostgreSQL (9.1 or newer, as it relies on `LOAD EXTENSION` and `FOREACH` loops)
 
 Most of the code is pretty standard pl/pgsql code so it should be platform independent.
 
@@ -137,6 +137,8 @@ Wanna help?
 
 Have a look at the [github issues page][2] and feel free to issue pull requests.
 
+Note that I'm running the regression tests (`make installcheck`) on a 9.5 server (other versions may trigger different notices (9.1 for example prints implicit primary key creation notices))
+
 If you plan on porting recall to another database/framework, let me know.
 
 ### Project structure
@@ -159,8 +161,33 @@ License
 
 This project is licensed under the terms of the PostgreSQL license (which is similar to the MIT license; see the COPYING file for details).
 
+Related
+-------
+
+This is a list of other projects I found doing similar things.  
+Keep in mind though that for most of these I only had a quick look at how they're implemented/used, so don't count on any of the following facts to be objective or true :)
+
+### PostgreSQL
+
+- [TimeTravel for PostgreSQL][6] (GNU GPLv3): Similar project, everything's in the `tt` database schema, seems to store the log data a little differently though (can't really say much more about them because I've just skimmed through their documentation PDF)
+- [A PL/pgSQL Trigger Procedure For Auditing][7] in the PostgreSQL docs
+
+### Others
+
+- [Oracle FlashBack][8]
+- [CouchDB's Revisions][9] Revision support is a first class citicen of CouchDB land. Revisions are identified by sequential IDs, old data can be cleaned up by "compaction"
+- [EclipseLink JPA History][10]: Higher level implementation in EclipseLink. On first glance it looks like the log (or `_hist` in that case) table has pretty much the format I've defined for pg_recall, so the two might actually be compatible...)
+
+- ...
+
+
 [1]: http://www.postgresql.org/docs/current/static/ddl-inherit.html
 [2]: https://github.com/mreithub/pg_recall/issues
 [3]:http://www.postgresql.org/docs/9.4/static/extend-extensions.html
 [4]: http://www.postgresql.org/docs/9.1/static/extend-pgxs.html
 [5]: examples/
+[6]: http://www.databtech.com/eng/index_timetravel.htm
+[7]: http://www.postgresql.org/docs/current/static/plpgsql-trigger.html#PLPGSQL-TRIGGER-AUDIT-EXAMPLE
+[8]: https://docs.oracle.com/cd/B28359_01/appdev.111/b28424/adfns_flashback.htm
+[9]: http://docs.couchdb.org/en/1.6.1/intro/api.html#revisions
+[10]: https://wiki.eclipse.org/EclipseLink/Examples/JPA/History
