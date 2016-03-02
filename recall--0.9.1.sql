@@ -29,7 +29,7 @@ BEGIN
 	);
 
 --	raise notice 'foo: %, %', pkeyCols, array_length(pkeyCols, 1);
-	IF cardinality(pkeyCols) = 0 THEN
+	IF COALESCE(array_ndims(pkeyCols), 0) < 1 THEN
 		RAISE EXCEPTION 'You need a primary key on your table if you want to use pg_recall (table: %)!', tbl;
 	END IF;
 
