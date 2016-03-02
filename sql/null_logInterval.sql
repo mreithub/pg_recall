@@ -4,7 +4,6 @@
 --
 
 BEGIN;
-CREATE EXTENSION recall;
 
 CREATE TABLE config (
 	key VARCHAR(100) PRIMARY KEY,

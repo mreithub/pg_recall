@@ -3,7 +3,6 @@
 -- Then checks if all the data has been copied to the _log table correctly
 --
 BEGIN;
-CREATE EXTENSION recall;
 -- create simple table
 CREATE TABLE config (
 	key VARCHAR(100) PRIMARY KEY,

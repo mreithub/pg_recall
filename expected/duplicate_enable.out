@@ -2,7 +2,6 @@
 -- Creates a simple table and enables logging twice (the second call should update the interval)
 --
 BEGIN;
-CREATE EXTENSION recall;
 CREATE TABLE config (
 	key VARCHAR(100) PRIMARY KEY,
 	value TEXT NOT NULL

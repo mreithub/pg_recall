@@ -3,7 +3,6 @@
 -- (that prevents two or more changes to the same record within one transaction)
 --
 BEGIN;
-CREATE EXTENSION recall;
 -- create table
 CREATE TABLE foo (
 	id INTEGER NOT NULL PRIMARY KEY,

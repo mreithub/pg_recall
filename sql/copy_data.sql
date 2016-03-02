@@ -4,7 +4,6 @@
 --
 
 BEGIN;
-CREATE EXTENSION recall;
 
 -- create simple table
 CREATE TABLE config (

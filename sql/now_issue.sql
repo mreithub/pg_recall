@@ -9,7 +9,6 @@
 --
 
 BEGIN;
-CREATE EXTENSION recall;
 
 -- create table
 CREATE TABLE foo (

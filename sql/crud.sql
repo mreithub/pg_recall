@@ -8,8 +8,6 @@
 BEGIN;
 
 
-CREATE EXTENSION recall;
-
 -- create a simple key/value table
 CREATE TABLE config (
 	key VARCHAR(100) PRIMARY KEY,

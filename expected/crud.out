@@ -5,7 +5,6 @@
 -- we'll do all of this in a transaction to have somewhat predictable now() values
 -- whenever we UPDATE values, we'll first move _log_start and _log_end one hour in the past in the log table.
 BEGIN;
-CREATE EXTENSION recall;
 -- create a simple key/value table
 CREATE TABLE config (
 	key VARCHAR(100) PRIMARY KEY,

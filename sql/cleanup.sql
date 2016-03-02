@@ -9,8 +9,6 @@
 -- start transaction
 BEGIN;
 
-CREATE EXTENSION recall;
-
 -- Create simple key/value table
 CREATE TABLE config (
 	key VARCHAR(100) NOT NULL PRIMARY KEY,
