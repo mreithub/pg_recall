@@ -92,6 +92,9 @@ BEGIN
 		RAISE EXCEPTION 'The table "%" is not managed by pg_recall', tbl;
 	END IF;
 
+	-- drop temp view created by recall_at (if it exists)
+	EXECUTE format('DROP VIEW IF EXISTS %I', tbl||'_past');
+
 	-- remove inheritance
 	EXECUTE format('ALTER TABLE %I NO INHERIT %I', tbl, tbl||'_tpl');
 
@@ -184,6 +187,32 @@ BEGIN
 	LOOP
 		PERFORM recall_cleanup(tbl);
 	END LOOP;
+END;
+$$ LANGUAGE plpgsql;
+
+--
+-- Query past state
+--
+CREATE FUNCTION recall_at(tbl REGCLASS, ts TIMESTAMPTZ) RETURNS REGCLASS AS $$
+DECLARE
+	viewName TEXT;
+	cols TEXT[];
+BEGIN
+	viewName = tbl||'_past';
+
+	-- get (escaped) list of columns
+	SELECT ARRAY(
+		SELECT format('%I', attname) INTO cols FROM pg_attribute WHERE attrelid = (tbl||'_tpl')::regclass AND attnum > 0 AND attisdropped = false
+	);
+
+	EXECUTE format('CREATE OR REPLACE TEMPORARY VIEW %I AS SELECT %s FROM %I WHERE _log_start <= %L AND (_log_end IS NULL OR _log_end > %L)',
+		viewName,
+		array_to_string(cols, ', '),
+		tbl||'_log',
+		ts, ts
+	);
+
+	return viewName;
 END;
 $$ LANGUAGE plpgsql;
 
