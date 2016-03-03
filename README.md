@@ -81,19 +81,42 @@ It also means it won't stop you from deleting previously referenced data (let's 
 
 ### Querying historic data
 
-As mentioned before, querying current data doesn't change, but if you want to have a look at past records (within the `logInterval` of course), you have to query the corresponding `_log` table.
+As mentioned before, you don't have to change any queries for current data, but if you want to have a look at past records (within the `logInterval` of course), you have to query the corresponding `_log` table.
 
-Below are some common usage examples, but basically they boil down to adding the following query condition (`:ts` being the timestamp you want to query for):
+There currently is one convenience function,  `recall_at()`, that creates a temporary view resembling the data table at any given time in the past.
+
+But if you want to do something not covered by that function, you'll have to query the `_log` table yourself, which (in most cases) boils down to adding the follwing WHERE clause (`:ts` being the timestamp you want to query for):
 
     ... AND _log_start <= :ts AND (_log_end IS NULL OR _log_end > :ts)
 
-#### Querying for a key in the past
+In the following examples, `my_table` is the name of the original data table.
 
-    SELECT * FROM my_table_log WHERE some_key = 'some_value' AND _log_start <= :ts AND (_log_end IS NULL OR _log_end > :ts)
+#### Querying past data
 
-#### Querying the complete past state of a table
+pg_recall provides a convenience function for querying log data from a certain moment in time: `recall_at(tblName, timestamp)`.
 
-    SELECT * FROM my_table_log WHERE _log_start <= :ts AND (_log_end IS NULL OR _log_end > :ts)
+It'll create a temporary view with the suffix `_past` added to your data table's name that you can query exactly like the original data table.
+
+    SELECT recall_at('my_table', now() - interval '2 months');
+    SELECT * FROM my_table_past WHERE ...;
+
+If you plan on querying the past state of a table frequently, you can add indexes to the corresponding `_log` table to speed up your queries.
+
+As mentioned before, the `_past` view is going to be temporary, so it'll only be visible from the current database session (which allows you to use `recall_at()` simultaneously on the same table from different sessions).
+
+Also, as it just creates a view, using `recall_at()` should perform roughly the same as if you were querying the `_log` table yourself.
+
+`recall_at()` will return the name of the temporary view.
+
+##### Querying for a key in the past
+
+    SELECT recall_at('my_table', now() - interval '1 minute');
+    SELECT * FROM my_table_past WHERE id = 5;
+
+or alternatively (also includes the `_log_start` and `_log_end` columns)
+
+    SELECT * FROM my_table_log WHERE id = 5 AND _log_start <= :ts AND (_log_end IS NULL OR _log_end > :ts)
+
 
 #### Listing all the changes to one key
 
