@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.9.2
+-----
+
+- fixed PostgreSQL 9.1 compatibility (by removing a call to 9.4's cardinality() function)
+- added recall_at()
+
 0.9.1
 -----
 

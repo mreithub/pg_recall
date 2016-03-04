@@ -172,8 +172,8 @@ Read the [Extension manual][3] and the [Extension Build Infrastructure][4] for f
 - `expected/*`: contains the expected output of the regression tests
 - `sql/*`: contains the regression tests
 - `examples/`: example projects
-- `recall--0.9.1.sql`: the actual implementation
-- `recall--0.9--0.9.1.sql`: update script(s)
+- `recall--0.9.2.sql`: the actual implementation
+- `recall--0.9*--0.9*.sql`: update script(s)
 - `recall.control`: extension control file
 - `Makefile`: PGXS make file (noteworthy targets: `make install` and `make installcheck` to run the regression tests)
 - `README.md`: this file
