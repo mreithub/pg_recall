@@ -7,7 +7,7 @@
 --
 -- installer function
 -- 
-CREATE FUNCTION recall_enable(tbl REGCLASS, logInterval INTERVAL) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION recall_enable(tbl REGCLASS, logInterval INTERVAL) RETURNS VOID AS $$
 DECLARE
 	pkeyCols name[];
 	pkeysEscaped text[]; -- list of escaped primary key column names (can be joined to a string using array_to_string(pkeysEscaped, ','))
@@ -76,7 +76,7 @@ $$ LANGUAGE plpgsql;
 --
 -- uninstaller function
 --
-CREATE FUNCTION recall_disable(tbl REGCLASS) RETURNS VOID AS $$
+CREATE OR REPLACE FUNCTION recall_disable(tbl REGCLASS) RETURNS VOID AS $$
 BEGIN
 	-- remove config table entry (and raise an exception if there was none)
 	DELETE FROM _recall_config WHERE tblid = tbl;
@@ -103,7 +103,7 @@ $$ LANGUAGE plpgsql;
 --
 -- Query past state
 --
-CREATE FUNCTION recall_at(tbl REGCLASS, ts TIMESTAMPTZ) RETURNS REGCLASS AS $$
+CREATE OR REPLACE FUNCTION recall_at(tbl REGCLASS, ts TIMESTAMPTZ) RETURNS REGCLASS AS $$
 DECLARE
 	viewName TEXT;
 	cols TEXT[];
