@@ -9,6 +9,6 @@ CREATE TABLE config (
 	value TEXT NOT NULL
 );
 
-SELECT recall_enable('config', null);
+SELECT recall.enable('config', null);
 
 COMMIT;

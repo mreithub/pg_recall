@@ -10,7 +10,7 @@ CREATE TABLE config (
 	value TEXT NOT NULL
 );
 
-SELECT recall_enable('config', NULL);
+SELECT recall.enable('config', NULL);
 
 
 -- run some statements
@@ -26,7 +26,7 @@ UPDATE config SET value=true WHERE key='true';
 
 
 -- cleanup (should return 0)
-SELECT recall_cleanup('config');
+SELECT recall.cleanup('config');
 
 -- and check the log data (there should be 4 rows)
 SELECT key, value, _log_end IS NULL AS is_current FROM config_log;

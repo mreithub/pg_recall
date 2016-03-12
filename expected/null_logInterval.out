@@ -7,9 +7,9 @@ CREATE TABLE config (
 	key VARCHAR(100) PRIMARY KEY,
 	value TEXT NOT NULL
 );
-SELECT recall_enable('config', NULL);
- recall_enable 
----------------
+SELECT recall.enable('config', NULL);
+ enable 
+--------
  
 (1 row)
 
@@ -22,11 +22,11 @@ UPDATE config_log SET _log_start = _log_start - interval '1 hour', _log_end = _l
 INSERT INTO config VALUES ('answer', 42);
 UPDATE config SET value=true WHERE key='true';
 -- cleanup (should return 0)
-SELECT recall_cleanup('config');
+SELECT recall.cleanup('config');
 NOTICE:  recall: Cleaning up table config
- recall_cleanup 
-----------------
-              0
+ cleanup 
+---------
+       0
 (1 row)
 
 -- and check the log data (there should be 4 rows)

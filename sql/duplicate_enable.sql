@@ -10,18 +10,18 @@ CREATE TABLE config (
 );
 
 -- enable logging
-SELECT recall_enable('config', '2 months');
+SELECT recall.enable('config', '2 months');
 
 -- run a cleanup to make sure last_cleanup is set
-SELECT recall_cleanup_all();
+SELECT recall.cleanup_all();
 
 -- check the config table
-SELECT tblid, log_interval, now() - last_cleanup FROM _recall_config;
+SELECT tblid, log_interval, now() - last_cleanup FROM recall._config;
 
 
--- a new call to recall_enable should trigger a notice, update the interval
+-- a new call to recall.enable should trigger a notice, update the interval
 -- and reset last_cleanup
-SELECT recall_enable('config', '3 months');
-SELECT tblid, log_interval, now() - last_cleanup FROM _recall_config;
+SELECT recall.enable('config', '3 months');
+SELECT tblid, log_interval, now() - last_cleanup FROM recall._config;
 
 ROLLBACK;

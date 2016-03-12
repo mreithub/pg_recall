@@ -1,5 +1,5 @@
 --
--- Creates a table, inserts some data and only then calls recall_enable()
+-- Creates a table, inserts some data and only then calls recall.enable()
 -- Then checks if all the data has been copied to the _log table correctly
 --
 
@@ -18,7 +18,7 @@ INSERT INTO config VALUES ('answer', 42);
 UPDATE config SET value = 'newValue' WHERE key = 'key';
 
 -- enable logging
-SELECT recall_enable('config', '1 day');
+SELECT recall.enable('config', '1 day');
 
 -- check the data
 SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log;

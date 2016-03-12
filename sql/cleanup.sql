@@ -1,6 +1,6 @@
 --
 -- Creates a simple data table with the very short log interval of only '2 hours' and performs some CRUD operations on it.
--- Every now and then it'll call 'recall_cleanup_all() and check if only data that's too old 
+-- Every now and then it'll call 'recall.cleanup_all() and check if only data that's too old 
 --
 -- To have somewhat predictable output, we'll run the whole test inside a transaction (which causes now() to always return the same value).
 -- To simulate different batches of changes, log entries will be pushed back by an hour between changes.
@@ -14,10 +14,10 @@ CREATE TABLE config (
 	key VARCHAR(100) NOT NULL PRIMARY KEY,
 	value TEXT NOT NULL
 );
-SELECT recall_enable('config', '2 hours');
+SELECT recall.enable('config', '2 hours');
 
 -- query the config table for completeness
-SELECT tblid, now() - ts AS ts, log_interval, last_cleanup, pkey_cols  from _recall_config;
+SELECT tblid, now() - ts AS ts, log_interval, last_cleanup, pkey_cols  from recall._config;
 
 -- first batch (will end up being now() - 3 hours)
 INSERT INTO config (key, value) VALUES ('keyA', 'valA');
@@ -26,8 +26,8 @@ INSERT INTO config (key, value) VALUES ('keyB', 'valB');
 -- 'wait' an hour
 UPDATE config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
 
--- clean up (should't affect the log data yet, so recall_cleanup() should return 0)
-SELECT recall_cleanup('config');
+-- clean up (should't affect the log data yet, so recall.cleanup() should return 0)
+SELECT recall.cleanup('config');
 
 SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log ORDER BY _log_start, key;
 
@@ -40,7 +40,7 @@ UPDATE config SET value = 'valueB' WHERE key = 'keyB';
 UPDATE config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
 
 -- clean up again and check the data (should still return 0)
-SELECT recall_cleanup('config');
+SELECT recall.cleanup('config');
 
 SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log ORDER BY _log_start, key;
 
@@ -53,18 +53,18 @@ DELETE FROM config WHERE key = 'keyC';
 UPDATE config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
 
 -- clean up again and check the data (it's supposed to delete the entries where end_ts is > 2 hours, so even though some are at '2 hours' yet, it should still return 0)
-SELECT recall_cleanup('config');
+SELECT recall.cleanup('config');
 SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log ORDER BY _log_start, key;
 
 -- 'wait' just one more minute
 UPDATE config_log SET _log_start = _log_start - interval '1 minute', _log_end = _log_end - interval '1 minute';
 
 -- clean up again and check the data (the log entry for the record changed in the first batch should've been deleted, so we expect a return value of 1 here)
-SELECT recall_cleanup('config');
+SELECT recall.cleanup('config');
 SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log ORDER BY _log_start, key;
 
 
 -- check if the last_cleanup field was updated correctly (expects to return '@ 0')
-SELECT now() - last_cleanup FROM _recall_config;
+SELECT now() - last_cleanup FROM recall._config;
 
 ROLLBACK;

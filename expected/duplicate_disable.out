@@ -6,22 +6,22 @@ CREATE TABLE config (
 	key VARCHAR(100) PRIMARY KEY,
 	value TEXT
 );
-SELECT recall_enable('config', '2 months');
- recall_enable 
----------------
+SELECT recall.enable('config', '2 months');
+ enable 
+--------
  
 (1 row)
 
-SELECT recall_disable('config');
+SELECT recall.disable('config');
 NOTICE:  view "config_past" does not exist, skipping
 CONTEXT:  SQL statement "DROP VIEW IF EXISTS config_past"
-PL/pgSQL function recall_disable(regclass) line 10 at EXECUTE
- recall_disable 
-----------------
+PL/pgSQL function recall.disable(regclass) line 10 at EXECUTE
+ disable 
+---------
  
 (1 row)
 
 -- ok, everything should have worked as planned so far, but this next call should trigger an exception
-SELECT recall_disable('config');
+SELECT recall.disable('config');
 ERROR:  The table "config" is not managed by pg_recall
 ROLLBACK;

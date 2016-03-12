@@ -1,6 +1,6 @@
 -- for each managed table, this will contain an entry specifying when the table was added to pg_recall and the amount of time outdated log entries are kept
 -- TODO it might be better to use relation IDs instead of the table name.
-CREATE TABLE _recall_config (
+CREATE TABLE _config (
 	tblid REGCLASS NOT NULL PRIMARY KEY,
 	ts TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 	log_interval INTERVAL,
@@ -9,13 +9,13 @@ CREATE TABLE _recall_config (
 );
 
 -- define it as config table (to include its data in pg_dump)
-SELECT pg_catalog.pg_extension_config_dump('_recall_config', '');
+SELECT pg_catalog.pg_extension_config_dump('_config', '');
 
 
 --
 -- installer function
 -- 
-CREATE FUNCTION recall_enable(tbl REGCLASS, logInterval INTERVAL) RETURNS VOID AS $$
+CREATE FUNCTION enable(tbl REGCLASS, logInterval INTERVAL) RETURNS VOID AS $$
 DECLARE
 	pkeyCols name[];
 	pkeysEscaped text[]; -- list of escaped primary key column names (can be joined to a string using array_to_string(pkeysEscaped, ','))
@@ -40,14 +40,14 @@ BEGIN
 	END LOOP;
 
 	-- update existing entry (and return if that was one)
-	UPDATE _recall_config SET log_interval = logInterval, pkey_cols = pkeyCols, last_cleanup = NULL WHERE tblid = tbl;
+	UPDATE @extschema@._config SET log_interval = logInterval, pkey_cols = pkeyCols, last_cleanup = NULL WHERE tblid = tbl;
 	IF FOUND THEN
-		RAISE NOTICE 'recall_enable(%, %) called on an already managed table. Updating log_interval and pkey_cols, clearing last_cleanup', tbl, logInterval;
+		RAISE NOTICE '@extschema@.enable(%, %) called on an already managed table. Updating log_interval and pkey_cols, clearing last_cleanup', tbl, logInterval;
 		RETURN;
 	END IF;
 
 	-- add config table entry
-	INSERT INTO _recall_config (tblid, log_interval, pkey_cols) VALUES (tbl, logInterval, pkeyCols);
+	INSERT INTO @extschema@._config (tblid, log_interval, pkey_cols) VALUES (tbl, logInterval, pkeyCols);
 
 	-- create the _tpl table (without constraints)
 	EXECUTE format('CREATE TABLE %I (LIKE %I)', tbl||'_tpl', tbl);
@@ -64,7 +64,7 @@ BEGIN
 
 	-- set the trigger
 	EXECUTE format('CREATE TRIGGER trig_recall AFTER INSERT OR UPDATE OR DELETE ON %I
-		FOR EACH ROW EXECUTE PROCEDURE recall_trigfn()', tbl);
+		FOR EACH ROW EXECUTE PROCEDURE @extschema@._trigfn()', tbl);
 
 
 	-- get list of columns and insert current database state into the log table
@@ -84,15 +84,15 @@ $$ LANGUAGE plpgsql;
 --
 -- uninstaller function
 --
-CREATE FUNCTION recall_disable(tbl REGCLASS) RETURNS VOID AS $$
+CREATE FUNCTION disable(tbl REGCLASS) RETURNS VOID AS $$
 BEGIN
 	-- remove config table entry (and raise an exception if there was none)
-	DELETE FROM _recall_config WHERE tblid = tbl;
+	DELETE FROM @extschema@._config WHERE tblid = tbl;
 	IF NOT FOUND THEN
 		RAISE EXCEPTION 'The table "%" is not managed by pg_recall', tbl;
 	END IF;
 
-	-- drop temp view created by recall_at (if it exists)
+	-- drop temp view created by @extschema@.at (if it exists)
 	EXECUTE format('DROP VIEW IF EXISTS %I', tbl||'_past');
 
 	-- remove inheritance
@@ -111,7 +111,7 @@ $$ LANGUAGE plpgsql;
 --
 -- Trigger function
 --
-CREATE FUNCTION recall_trigfn() RETURNS TRIGGER AS $$
+CREATE FUNCTION _trigfn() RETURNS TRIGGER AS $$
 DECLARE
 	pkeyCols TEXT[];
 	pkeys TEXT[];
@@ -125,7 +125,7 @@ BEGIN
 	END IF;
 	IF TG_OP IN ('UPDATE', 'DELETE') THEN
 		-- Get the primary key columns from the config table
-		SELECT pkey_cols INTO pkeyCols FROM _recall_config WHERE tblid = TG_RELID;
+		SELECT pkey_cols INTO pkeyCols FROM @extschema@._config WHERE tblid = TG_RELID;
 
 		-- build WHERE clauses in the form of 'pkeyCol = OLD.pkeyCol' for each of the primary key columns
 		-- (they will later be joined with ' AND ' inbetween)
@@ -160,14 +160,14 @@ $$ LANGUAGE plpgsql;
 --
 -- Cleanup functions (return the number of deleted rows)
 --
-CREATE FUNCTION recall_cleanup(tbl REGCLASS) RETURNS INTEGER AS $$
+CREATE FUNCTION cleanup(tbl REGCLASS) RETURNS INTEGER AS $$
 DECLARE
 	logInterval INTERVAL;
 	rc INTEGER;
 BEGIN
 	-- get the log interval (and update last_cleanup while we're at it)
-	UPDATE _recall_config SET last_cleanup = now() WHERE tblId = tbl RETURNING log_interval INTO logInterval;
-	--SELECT log_interval INTO logInterval FROM _recall_config c WHERE tblId = tbl;
+	UPDATE @extschema@._config SET last_cleanup = now() WHERE tblId = tbl RETURNING log_interval INTO logInterval;
+	--SELECT log_interval INTO logInterval FROM @extschema@._config c WHERE tblId = tbl;
 
 	RAISE NOTICE 'recall: Cleaning up table %', tbl;
 	-- Remove old entries
@@ -179,13 +179,13 @@ END;
 $$ LANGUAGE plpgsql;
 
 -- convenience cleanup function
-CREATE FUNCTION recall_cleanup_all() RETURNS VOID AS $$
+CREATE FUNCTION cleanup_all() RETURNS VOID AS $$
 DECLARE
 	tbl REGCLASS;
 BEGIN
-	FOR tbl in SELECT tblid FROM _recall_config
+	FOR tbl in SELECT tblid FROM @extschema@._config
 	LOOP
-		PERFORM recall_cleanup(tbl);
+		PERFORM @extschema@.cleanup(tbl);
 	END LOOP;
 END;
 $$ LANGUAGE plpgsql;
@@ -193,7 +193,7 @@ $$ LANGUAGE plpgsql;
 --
 -- Query past state
 --
-CREATE FUNCTION recall_at(tbl REGCLASS, ts TIMESTAMPTZ) RETURNS REGCLASS AS $$
+CREATE FUNCTION at(tbl REGCLASS, ts TIMESTAMPTZ) RETURNS REGCLASS AS $$
 DECLARE
 	viewName TEXT;
 	cols TEXT[];

@@ -7,39 +7,39 @@ CREATE TABLE config (
 	value TEXT NOT NULL
 );
 -- enable logging
-SELECT recall_enable('config', '2 months');
- recall_enable 
----------------
+SELECT recall.enable('config', '2 months');
+ enable 
+--------
  
 (1 row)
 
 -- run a cleanup to make sure last_cleanup is set
-SELECT recall_cleanup_all();
+SELECT recall.cleanup_all();
 NOTICE:  recall: Cleaning up table config
-CONTEXT:  SQL statement "SELECT recall_cleanup(tbl)"
-PL/pgSQL function recall_cleanup_all() line 7 at PERFORM
- recall_cleanup_all 
---------------------
+CONTEXT:  SQL statement "SELECT recall.cleanup(tbl)"
+PL/pgSQL function recall.cleanup_all() line 7 at PERFORM
+ cleanup_all 
+-------------
  
 (1 row)
 
 -- check the config table
-SELECT tblid, log_interval, now() - last_cleanup FROM _recall_config;
+SELECT tblid, log_interval, now() - last_cleanup FROM recall._config;
  tblid  | log_interval | ?column? 
 --------+--------------+----------
  config | @ 2 mons     | @ 0
 (1 row)
 
--- a new call to recall_enable should trigger a notice, update the interval
+-- a new call to recall.enable should trigger a notice, update the interval
 -- and reset last_cleanup
-SELECT recall_enable('config', '3 months');
-NOTICE:  recall_enable(config, @ 3 mons) called on an already managed table. Updating log_interval and pkey_cols, clearing last_cleanup
- recall_enable 
----------------
+SELECT recall.enable('config', '3 months');
+NOTICE:  recall.enable(config, @ 3 mons) called on an already managed table. Updating log_interval and pkey_cols, clearing last_cleanup
+ enable 
+--------
  
 (1 row)
 
-SELECT tblid, log_interval, now() - last_cleanup FROM _recall_config;
+SELECT tblid, log_interval, now() - last_cleanup FROM recall._config;
  tblid  | log_interval | ?column? 
 --------+--------------+----------
  config | @ 3 mons     | 

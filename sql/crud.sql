@@ -15,7 +15,7 @@ CREATE TABLE config (
 );
 
 -- enable pg_recall and configure it to store data for three months
-SELECT recall_enable('config', '3 months');
+SELECT recall.enable('config', '3 months');
 
 -- insert a few values
 INSERT INTO config (key, value) VALUES ('enable_something', 'true');

@@ -9,11 +9,11 @@ CREATE TABLE config (
 	value TEXT
 );
 
-SELECT recall_enable('config', '2 months');
+SELECT recall.enable('config', '2 months');
 
-SELECT recall_disable('config');
+SELECT recall.disable('config');
 
 -- ok, everything should have worked as planned so far, but this next call should trigger an exception
-SELECT recall_disable('config');
+SELECT recall.disable('config');
 
 ROLLBACK;
