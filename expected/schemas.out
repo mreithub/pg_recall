@@ -1,0 +1,89 @@
+--
+-- Creates a test schema and a couple of tables, then enables recall on them (some of them locally,
+-- some of them in the recall schema) and makes sure they're prefixed correctly
+--
+CREATE SCHEMA mySchema;
+CREATE TABLE foo (
+	id SERIAL PRIMARY KEY
+);
+CREATE TABLE hello (
+	world SERIAL PRIMARY KEY
+);
+CREATE TABLE mySchema.bar (
+	otherId SERIAL PRIMARY KEY
+);
+CREATE TABLE mySchema.account (
+	uid SERIAL PRIMARY KEY
+);
+-- The first two log tables will be stored to the 'recall' schema implicitly
+SELECT recall.enable('foo', '3 months');
+ enable 
+--------
+ 
+(1 row)
+
+SELECT recall.enable('mySchema.bar', '4 months');
+ enable 
+--------
+ 
+(1 row)
+
+-- The other two will be stored locally
+SELECT recall.enable('hello', '5 months', 'public');
+ enable 
+--------
+ 
+(1 row)
+
+SELECT recall.enable('mySchema.account', '6 months', 'myschema');
+ enable 
+--------
+ 
+(1 row)
+
+-- expected log table name (same goes for the _tpl table):
+-- - foo:     recall.foo_log
+-- - hello:   hello_log
+-- - bar:     recall.mySchema__bar_log
+-- - account: mySchema.account_log
+\dt
+          List of relations
+ Schema |   Name    | Type  | Owner  
+--------+-----------+-------+--------
+ public | foo       | table | manuel
+ public | hello     | table | manuel
+ public | hello_log | table | manuel
+ public | hello_tpl | table | manuel
+(4 rows)
+
+\dt mySchema.*
+            List of relations
+  Schema  |    Name     | Type  | Owner  
+----------+-------------+-------+--------
+ myschema | account     | table | manuel
+ myschema | account_log | table | manuel
+ myschema | account_tpl | table | manuel
+ myschema | bar         | table | manuel
+(4 rows)
+
+\dt recall.*
+              List of relations
+ Schema |       Name        | Type  | Owner  
+--------+-------------------+-------+--------
+ recall | _config           | table | manuel
+ recall | foo_log           | table | manuel
+ recall | foo_tpl           | table | manuel
+ recall | myschema__bar_log | table | manuel
+ recall | myschema__bar_tpl | table | manuel
+(5 rows)
+
+-- check the contents of the recall._config table:
+SELECT tblid, log_interval, last_cleanup, pkey_cols, tpl_table, log_table FROM recall._config;
+      tblid       | log_interval | last_cleanup | pkey_cols |        tpl_table         |        log_table         
+------------------+--------------+--------------+-----------+--------------------------+--------------------------
+ foo              | @ 3 mons     |              | {id}      | recall.foo_tpl           | recall.foo_log
+ myschema.bar     | @ 4 mons     |              | {otherid} | recall.myschema__bar_tpl | recall.myschema__bar_log
+ hello            | @ 5 mons     |              | {world}   | hello_tpl                | hello_log
+ myschema.account | @ 6 mons     |              | {uid}     | myschema.account_tpl     | myschema.account_log
+(4 rows)
+
