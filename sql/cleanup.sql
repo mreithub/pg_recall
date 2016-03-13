@@ -16,6 +16,11 @@ CREATE TABLE config (
 );
 SELECT recall.enable('config', '2 hours');
 
+-- create log view
+CREATE VIEW view_config_log AS
+SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+
+
 -- query the config table for completeness
 SELECT tblid, now() - ts AS ts, log_interval, last_cleanup, pkey_cols  from recall._config;
 
@@ -29,7 +34,7 @@ SELECT pretendToWait('1 hour');
 -- clean up (should't affect the log data yet, so recall.cleanup() should return 0)
 SELECT recall.cleanup('config');
 
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT * FROM view_config_log;
 
 
 -- second batch (will be now() - 2 hours in the end)
@@ -42,7 +47,7 @@ SELECT pretendToWait('1 hour');
 -- clean up again and check the data (should still return 0)
 SELECT recall.cleanup('config');
 
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT * FROM view_config_log;
 
 
 -- third batch (will be now() - 1 hour)
@@ -54,14 +59,14 @@ SELECT pretendToWait('1 hour');
 
 -- clean up again and check the data (it's supposed to delete the entries where end_ts is > 2 hours, so even though some are at '2 hours' yet, it should still return 0)
 SELECT recall.cleanup('config');
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT * FROM view_config_log;
 
 -- 'wait' just one more minute
 SELECT pretendToWait('1 minute');
 
 -- clean up again and check the data (the log entry for the record changed in the first batch should've been deleted, so we expect a return value of 1 here)
 SELECT recall.cleanup('config');
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT * FROM view_config_log;
 
 
 -- check if the last_cleanup field was updated correctly (expects to return '@ 0')

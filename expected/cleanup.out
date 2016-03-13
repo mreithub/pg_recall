@@ -18,6 +18,9 @@ SELECT recall.enable('config', '2 hours');
  
 (1 row)
 
+-- create log view
+CREATE VIEW view_config_log AS
+SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
 -- query the config table for completeness
 SELECT tblid, now() - ts AS ts, log_interval, last_cleanup, pkey_cols  from recall._config;
  tblid  | ts  | log_interval | last_cleanup | pkey_cols 
@@ -43,7 +46,7 @@ NOTICE:  recall: Cleaning up table config
        0
 (1 row)
 
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT * FROM view_config_log;
  key  | value |  _start  | _end 
 ------+-------+----------+------
  keyA | valA  | @ 1 hour | 
@@ -68,7 +71,7 @@ NOTICE:  recall: Cleaning up table config
        0
 (1 row)
 
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT * FROM view_config_log;
  key  | value  |  _start   |   _end   
 ------+--------+-----------+----------
  keyA | valA   | @ 2 hours | 
@@ -95,7 +98,7 @@ NOTICE:  recall: Cleaning up table config
        0
 (1 row)
 
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT * FROM view_config_log;
  key  | value  |  _start   |   _end    
 ------+--------+-----------+-----------
  keyA | valA   | @ 3 hours | 
@@ -120,7 +123,7 @@ NOTICE:  recall: Cleaning up table config
        1
 (1 row)
 
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT * FROM view_config_log;
  key  | value  |     _start      |      _end      
 ------+--------+-----------------+----------------
  keyA | valA   | @ 3 hours 1 min | 

@@ -76,5 +76,6 @@ SELECT recall.at('config', now() - interval '61 minutes');
 SELECT key, value FROM config_past ORDER BY key;
 
 -- list all the changes to the 'enable_something' record
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log WHERE key = 'enable_something' ORDER BY _log_start, key;
+SELECT * FROM view_config_log WHERE key = 'enable_something';
+
 ROLLBACK;
