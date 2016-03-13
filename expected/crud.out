@@ -17,6 +17,9 @@ SELECT recall.enable('config', '3 months');
  
 (1 row)
 
+-- create a helper view to query the log table
+CREATE VIEW view_config_log AS
+SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
 -- insert a few values
 INSERT INTO config (key, value) VALUES ('enable_something', 'true');
 INSERT INTO config (key, value) VALUES ('some_number', '42');
@@ -31,7 +34,7 @@ SELECT key, value FROM config ORDER BY key;
  some_number      | 42
 (2 rows)
 
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT * FROM view_config_log;
        key        | value | _start | _end 
 ------------------+-------+--------+------
  enable_something | true  | @ 0    | 
@@ -60,7 +63,7 @@ SELECT key, value FROM config ORDER BY key;
  some_number      | 42
 (2 rows)
 
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT * FROM view_config_log;
        key        | value |  _start  | _end 
 ------------------+-------+----------+------
  enable_something | true  | @ 1 hour | @ 0
@@ -83,7 +86,7 @@ SELECT key, value FROM config ORDER BY key;
  some_number_      | 42
 (2 rows)
 
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT * FROM view_config_log;
         key        | value |  _start   |   _end   
 -------------------+-------+-----------+----------
  enable_something  | true  | @ 2 hours | @ 1 hour
@@ -107,7 +110,7 @@ SELECT key, value FROM config ORDER BY key;
  enable_something_ | false
 (1 row)
 
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT * FROM view_config_log;
         key        | value |  _start   |   _end    
 -------------------+-------+-----------+-----------
  enable_something  | true  | @ 3 hours | @ 2 hours
@@ -118,7 +121,13 @@ SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM r
 (5 rows)
 
 -- query the log table for the current state (for an easy way to compare it to the data table)
-SELECT key, value FROM recall.config_log WHERE _log_start <= now() AND (_log_end IS NULL OR _log_end > now()) ORDER BY key;
+SELECT recall.at('config', now());
+     at      
+-------------
+ config_past
+(1 row)
+
+SELECT key, value FROM config_past ORDER BY key;
         key        | value 
 -------------------+-------
  enable_something_ | false
