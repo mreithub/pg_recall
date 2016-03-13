@@ -1,5 +1,4 @@
 -- for each managed table, this will contain an entry specifying when the table was added to pg_recall and the amount of time outdated log entries are kept
--- TODO it might be better to use relation IDs instead of the table name.
 CREATE TABLE _config (
 	tblid REGCLASS NOT NULL PRIMARY KEY,
 	ts TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -158,10 +157,12 @@ DECLARE
 	logSchema NAME; logName NAME;
 
 	pkeyCols TEXT[];
-	pkeys TEXT[];
+	pkeyChecks TEXT[]; -- array of 'colName = $1.colName' strings
+	assignments TEXT[]; -- array of 'colname = $2.colName' strings (for the UPDATE statement)
 	cols TEXT[]; -- will be filled with escaped column names (in the same order as the vals below)
 	vals TEXT[]; -- will contain the equivalent of NEW.<colName> for each of the columns in the _tpl table
 	col TEXT; -- loop variable
+	updateCount INTEGER;
 BEGIN
 	if TG_OP = 'UPDATE' AND OLD = NEW THEN
 		RAISE INFO 'pg_recall: row unchanged, no need to write to log';
@@ -180,28 +181,48 @@ BEGIN
 		-- (they will later be joined with ' AND ' inbetween)
 		FOREACH col IN ARRAY pkeyCols
 		LOOP
-			pkeys = array_append(pkeys, format('%I = $1.%I', col, col));
+			pkeyChecks = array_append(pkeyChecks, format('%I = $1.%I', col, col));
 		END LOOP;
 
 		-- mark old log entries as outdated
-		EXECUTE format('UPDATE %I.%I SET _log_end = now() WHERE %s AND _log_end IS NULL',
+		EXECUTE format('UPDATE %I.%I SET _log_end = now() WHERE %s AND _log_end IS NULL AND _log_start != now()',
 			logSchema, logName,
-			array_to_string(pkeys, ' AND ')) USING OLD;
+			array_to_string(pkeyChecks, ' AND ')) USING OLD;
 	END IF;
 	IF TG_OP IN ('INSERT', 'UPDATE') THEN
 		-- get all columns of the _tpl table and put them into the cols and vals arrays
 		-- (source: http://dba.stackexchange.com/a/22420/85760 )
 		FOR col IN SELECT attname FROM pg_attribute WHERE attrelid = tplTable AND attnum > 0 AND attisdropped = false
 		LOOP
+			-- for the INSERT
 			cols = array_append(cols, format('%I', col));
 			vals = array_append(vals, format('$1.%I', col));
+
+			-- for the UPDATE
+			assignments = array_append(assignments, format('%I = $2.%I', col, col));
 		END LOOP;
 
-		-- create the log entry
-		EXECUTE format('INSERT INTO %I.%I (%s) VALUES (%s)',
-			logSchema, logName,
-			array_to_string(cols, ', '),
-			array_to_string(vals, ', ')) USING NEW;
+		-- for UPDATE statements, check if the value's been changed before (see #16)
+		updateCount := 0;
+		IF TG_OP = 'UPDATE' THEN
+			-- we can reuse pkeyChecks here
+			EXECUTE format('UPDATE %I.%I SET %s WHERE %s AND _log_start = now()',
+				logSchema, logName,
+				array_to_string(assignments, ', '),
+				array_to_string(pkeyChecks, ' AND ')
+			) USING OLD, NEW;
+			GET DIAGNOSTICS updateCount = ROW_COUNT;
+		END IF;
+
+		IF updateCount = 0 THEN
+			-- create the log entry (as there was nothing to update)
+			EXECUTE format('INSERT INTO %I.%I (%s) VALUES (%s)',
+				logSchema, logName,
+				array_to_string(cols, ', '),
+				array_to_string(vals, ', ')
+			) USING NEW;
+		END IF;
+
 	END IF;
 	RETURN new;
 END;
