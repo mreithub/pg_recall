@@ -18,7 +18,7 @@ INSERT INTO config VALUES ('foo', 'bar');
 INSERT INTO config VALUES ('true', false);
 
 -- 'wait' an hour
-UPDATE recall.config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
+SELECT pretendToWait('1 hour');
 
 -- run some more statements
 INSERT INTO config VALUES ('answer', 42);

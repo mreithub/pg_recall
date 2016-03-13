@@ -7,7 +7,6 @@
 -- whenever we UPDATE values, we'll first move _log_start and _log_end one hour in the past in the log table.
 BEGIN;
 
-
 -- create a simple key/value table
 CREATE TABLE config (
 	key VARCHAR(100) PRIMARY KEY,
@@ -30,7 +29,7 @@ SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM r
 
 
 -- update value (to work around the now() issue manually set the log values back one hour)
-UPDATE recall.config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
+SELECT pretendToWait('1 hour');
 UPDATE config SET value = 'false' WHERE key = 'enable_something';
 
 -- if we didn't check for duplicates, this would fail (due to the same record being logged twice at the same time)
@@ -45,7 +44,7 @@ SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM r
 
 
 -- do a bulk key update (the equivalent to deleting all entries and creating new ones)
-UPDATE recall.config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
+SELECT pretendToWait('1 hour');
 UPDATE config SET key = key||'_';
 
 SELECT key, value FROM config ORDER BY key;
@@ -53,7 +52,7 @@ SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM r
 
 
 -- delete an entry (again after pushing log entries back one hour)
-UPDATE recall.config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
+SELECT pretendToWait('1 hour');
 DELETE FROM config WHERE key = 'some_number_';
 
 SELECT key, value FROM config ORDER BY key;

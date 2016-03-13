@@ -39,7 +39,12 @@ SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM r
 (2 rows)
 
 -- update value (to work around the now() issue manually set the log values back one hour)
-UPDATE recall.config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
+SELECT pretendToWait('1 hour');
+ pretendtowait 
+---------------
+ 
+(1 row)
+
 UPDATE config SET value = 'false' WHERE key = 'enable_something';
 -- if we didn't check for duplicates, this would fail (due to the same record being logged twice at the same time)
 UPDATE config SET value = 'false' WHERE key = 'enable_something';
@@ -64,7 +69,12 @@ SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM r
 (3 rows)
 
 -- do a bulk key update (the equivalent to deleting all entries and creating new ones)
-UPDATE recall.config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
+SELECT pretendToWait('1 hour');
+ pretendtowait 
+---------------
+ 
+(1 row)
+
 UPDATE config SET key = key||'_';
 SELECT key, value FROM config ORDER BY key;
         key        | value 
@@ -84,7 +94,12 @@ SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM r
 (5 rows)
 
 -- delete an entry (again after pushing log entries back one hour)
-UPDATE recall.config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
+SELECT pretendToWait('1 hour');
+ pretendtowait 
+---------------
+ 
+(1 row)
+
 DELETE FROM config WHERE key = 'some_number_';
 SELECT key, value FROM config ORDER BY key;
         key        | value 
