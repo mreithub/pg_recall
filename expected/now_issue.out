@@ -20,7 +20,7 @@ SELECT recall.enable('foo', null);
 
 -- create log view
 CREATE VIEW view_foo_log AS
-SELECT id, value, enabled, now()-_log_start AS _start, now() - _log_end AS _end FROM recall.foo_log ORDER BY id, _log_start;
+SELECT id, value, enabled, now()-LOWER(_log_time) AS _start, now() - UPPER(_log_time) AS _end FROM recall.foo_log ORDER BY id, LOWER(_log_time);
 -- create records
 INSERT INTO foo VALUES (1, 'hello', true);
 INSERT INTO foo VALUES (2, 'world', false);

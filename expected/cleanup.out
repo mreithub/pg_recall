@@ -20,7 +20,7 @@ SELECT recall.enable('config', '2 hours');
 
 -- create log view
 CREATE VIEW view_config_log AS
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT key, value, now() - LOWER(_log_time) AS _start, now() - UPPER(_log_time) AS _end FROM recall.config_log ORDER BY LOWER(_log_time), key;
 -- query the config table for completeness
 SELECT tblid, now() - ts AS ts, log_interval, last_cleanup, pkey_cols  from recall._config;
  tblid  | ts  | log_interval | last_cleanup | pkey_cols 

@@ -25,7 +25,7 @@ FROM pg_class t INNER JOIN pg_namespace n ON (t.relnamespace = n.oid);
 CREATE FUNCTION enable(tbl REGCLASS, logInterval INTERVAL, tgtSchema NAME) RETURNS VOID AS $$
 DECLARE
 	pkeyCols NAME[];
-	pkeysEscaped TEXT[]; -- list of escaped primary key column names (can be joined to a string using array_to_string(pkeysEscaped, ','))
+	overlapPkeys TEXT[]; -- list of pkey checks (in the form of 'colName WITH =') to be used in the EXCLUDE constraint of the log table
 	cols TEXT[];
 	k NAME;
 
@@ -51,12 +51,6 @@ BEGIN
 		RAISE EXCEPTION 'You need a primary key on your table if you want to use pg_recall (table: %)!', tbl;
 	END IF;
 
-	-- init pkeysEscaped
-	FOREACH k IN ARRAY pkeyCols
-	LOOP
-		pkeysEscaped = array_append(pkeysEscaped, format('%I', k));
-	END LOOP;
-
 	-- update existing entry if exists (and return in that case)
 	UPDATE @extschema@._config SET log_interval = logInterval, pkey_cols = pkeyCols, last_cleanup = NULL WHERE tblid = tbl;
 	IF FOUND THEN
@@ -64,15 +58,25 @@ BEGIN
 		RETURN;
 	END IF;
 
+	-- init overlapPkeys
+	FOREACH k IN ARRAY pkeyCols
+	LOOP
+		overlapPkeys = array_append(overlapPkeys, format('%I WITH =', k));
+	END LOOP;
+
 	-- create the _tpl table (without constraints)
 	EXECUTE format('CREATE TABLE %I.%I (LIKE %I.%I)', tgtSchema, prefix||'_tpl', tblSchema, tblName);
 
 	-- create the _log table
 	EXECUTE format('CREATE TABLE %I.%I (
-		_log_start TIMESTAMPTZ NOT NULL DEFAULT now(),
-		_log_end TIMESTAMPTZ,
-		PRIMARY KEY (%s, _log_start)
-	) INHERITS (%I.%I)', tgtSchema, prefix||'_log', array_to_string(pkeysEscaped, ', '), tgtSchema, prefix||'_tpl');
+		_log_time TSTZRANGE NOT NULL DEFAULT tstzrange(now(), NULL),
+		EXCLUDE USING gist (%s, _log_time WITH &&),
+		CHECK (NOT isempty(_log_time))
+		) INHERITS (%I.%I)',
+		tgtSchema, prefix||'_log',
+		array_to_string(overlapPkeys, ', '),
+		tgtSchema, prefix||'_tpl'
+	);
 
 	-- make the _tpl table the parent of the data table
 	EXECUTE format('ALTER TABLE %I.%I INHERIT %I.%I', tblSchema, tblName, tgtSchema, prefix||'_tpl');
@@ -184,7 +188,7 @@ BEGIN
 		END LOOP;
 
 		-- mark old log entries as outdated
-		EXECUTE format('UPDATE %I.%I SET _log_end = now() WHERE %s AND _log_end IS NULL AND _log_start != now()',
+		EXECUTE format('UPDATE %I.%I SET _log_time = tstzrange(LOWER(_log_time), now()) WHERE %s AND upper_inf(_log_time) AND LOWER(_log_time) != now()',
 			logSchema, logName,
 			array_to_string(pkeyChecks, ' AND ')) USING OLD;
 	END IF;
@@ -205,7 +209,7 @@ BEGIN
 		updateCount := 0;
 		IF TG_OP = 'UPDATE' THEN
 			-- we can reuse pkeyChecks here
-			EXECUTE format('UPDATE %I.%I SET %s WHERE %s AND _log_start = now()',
+			EXECUTE format('UPDATE %I.%I SET %s WHERE %s AND LOWER(_log_time) = now()',
 				logSchema, logName,
 				array_to_string(assignments, ', '),
 				array_to_string(pkeyChecks, ' AND ')
@@ -248,7 +252,7 @@ BEGIN
 
 	RAISE NOTICE 'recall: Cleaning up table %', tbl;
 	-- Remove old entries
-	EXECUTE format('DELETE FROM %I.%I WHERE _log_end < now() - $1', logSchema, logName) USING logInterval;
+	EXECUTE format('DELETE FROM %I.%I WHERE UPPER(_log_time) < now() - $1', logSchema, logName) USING logInterval;
 
 	GET DIAGNOSTICS rc = ROW_COUNT;
 	RETURN rc;
@@ -277,13 +281,15 @@ DECLARE
 
 	tblSchema NAME; tblName NAME;
 	logSchema NAME; logName NAME;
+
 	viewName NAME;
 	cols TEXT[];
 BEGIN
-	-- init vars
+	-- initialize vars
 	SELECT tpl_table, log_table INTO tplTable, logTable FROM @extschema@._config WHERE tblid = tbl;
-	SELECT schema, name INTO tblSchema, tblName FROM recall._tablemapping WHERE id = tbl;
-	SELECT schema, name INTO logSchema, logName FROM recall._tablemapping WHERE id = logTable;
+
+	SELECT schema, name INTO tblSchema, tblName FROM @extschema@._tablemapping WHERE id = tbl;
+	SELECT schema, name INTO logSchema, logName FROM @extschema@._tablemapping WHERE id = logTable;
 	viewName := tblName||'_past';
 
 	-- get (escaped) list of columns
@@ -291,11 +297,11 @@ BEGIN
 		SELECT format('%I', attname) INTO cols FROM pg_attribute WHERE attrelid = tplTable AND attnum > 0 AND attisdropped = false
 	);
 
-	EXECUTE format('CREATE OR REPLACE TEMPORARY VIEW %I AS SELECT %s FROM %I.%I WHERE _log_start <= %L AND (_log_end IS NULL OR _log_end > %L)',
+	EXECUTE format('CREATE OR REPLACE TEMPORARY VIEW %I AS SELECT %s FROM %I.%I WHERE _log_time @> %L::timestamptz',
 		viewName,
 		array_to_string(cols, ', '),
 		logSchema, logName,
-		ts, ts
+		ts
 	);
 
 	return viewName;

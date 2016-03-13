@@ -4,7 +4,7 @@
 --
 
 -- we'll do all of this in a transaction to have somewhat predictable now() values
--- whenever we UPDATE values, we'll first move _log_start and _log_end one hour in the past in the log table.
+-- whenever we UPDATE values, we'll first move _log_time hour to the past in the log table.
 BEGIN;
 
 -- create a simple key/value table
@@ -18,7 +18,7 @@ SELECT recall.enable('config', '3 months');
 
 -- create a helper view to query the log table
 CREATE VIEW view_config_log AS
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log ORDER BY _log_start, key;
+SELECT key, value, now() - LOWER(_log_time) AS _start, now() - UPPER(_log_time) AS _end FROM recall.config_log ORDER BY LOWER(_log_time), key;
 
 -- insert a few values
 INSERT INTO config (key, value) VALUES ('enable_something', 'true');
