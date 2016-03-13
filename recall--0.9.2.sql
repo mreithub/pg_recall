@@ -29,8 +29,7 @@ DECLARE
 	cols TEXT[];
 	k NAME;
 
-	tblSchema NAME;
-	tblName NAME;
+	tblSchema NAME; tblName NAME;
 	prefix NAME;
 	tplTable REGCLASS;
 	logTable REGCLASS;
@@ -273,20 +272,29 @@ $$ LANGUAGE plpgsql;
 --
 CREATE FUNCTION at(tbl REGCLASS, ts TIMESTAMPTZ) RETURNS REGCLASS AS $$
 DECLARE
-	viewName TEXT;
+	tplTable REGCLASS;
+	logTable REGCLASS;
+
+	tblSchema NAME; tblName NAME;
+	logSchema NAME; logName NAME;
+	viewName NAME;
 	cols TEXT[];
 BEGIN
-	viewName = tbl||'_past';
+	-- init vars
+	SELECT tpl_table, log_table INTO tplTable, logTable FROM @extschema@._config WHERE tblid = tbl;
+	SELECT schema, name INTO tblSchema, tblName FROM recall._tablemapping WHERE id = tbl;
+	SELECT schema, name INTO logSchema, logName FROM recall._tablemapping WHERE id = logTable;
+	viewName := tblName||'_past';
 
 	-- get (escaped) list of columns
 	SELECT ARRAY(
-		SELECT format('%I', attname) INTO cols FROM pg_attribute WHERE attrelid = (tbl||'_tpl')::regclass AND attnum > 0 AND attisdropped = false
+		SELECT format('%I', attname) INTO cols FROM pg_attribute WHERE attrelid = tplTable AND attnum > 0 AND attisdropped = false
 	);
 
-	EXECUTE format('CREATE OR REPLACE TEMPORARY VIEW %I AS SELECT %s FROM %I WHERE _log_start <= %L AND (_log_end IS NULL OR _log_end > %L)',
+	EXECUTE format('CREATE OR REPLACE TEMPORARY VIEW %I AS SELECT %s FROM %I.%I WHERE _log_start <= %L AND (_log_end IS NULL OR _log_end > %L)',
 		viewName,
 		array_to_string(cols, ', '),
-		tbl||'_log',
+		logSchema, logName,
 		ts, ts
 	);
 

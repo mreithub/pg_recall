@@ -65,10 +65,12 @@ SELECT key, value FROM recall.config_log WHERE _log_start <= now() AND (_log_end
 SELECT key, value FROM config ORDER BY key;
 
 -- query the log table for the state of one hour ago:
-SELECT key, value FROM recall.config_log WHERE _log_start <= now() - interval '1 hour' AND (_log_end IS NULL OR _log_end > now() - interval '1 hour') ORDER BY key;
+SELECT recall.at('config', now() - interval '1 hour');
+SELECT key, value FROM config_past ORDER BY key;
 
 -- query the log table for the state of one hour and one minute ago:
-SELECT key, value FROM recall.config_log WHERE _log_start <= now() - interval '61 minutes' AND (_log_end IS NULL OR _log_end > now() - interval '61 minutes') ORDER BY key;
+SELECT recall.at('config', now() - interval '61 minutes');
+SELECT key, value FROM config_past ORDER BY key;
 
 -- list all the changes to the 'enable_something' record
 SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log WHERE key = 'enable_something' ORDER BY _log_start, key;
