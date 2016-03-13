@@ -34,6 +34,8 @@ SELECT tblid, log_interval, now() - last_cleanup FROM recall._config;
 -- and reset last_cleanup
 SELECT recall.enable('config', '3 months');
 NOTICE:  recall.enable(config, @ 3 mons) called on an already managed table. Updating log_interval and pkey_cols, clearing last_cleanup
+CONTEXT:  SQL statement "SELECT recall.enable(tbl, duration, 'recall')"
+PL/pgSQL function recall.enable(regclass,interval) line 3 at PERFORM
  enable 
 --------
  

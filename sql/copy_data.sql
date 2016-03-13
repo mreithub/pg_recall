@@ -21,6 +21,6 @@ UPDATE config SET value = 'newValue' WHERE key = 'key';
 SELECT recall.enable('config', '1 day');
 
 -- check the data
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log;
+SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log;
 
 ROLLBACK;

@@ -18,7 +18,7 @@ INSERT INTO config VALUES ('foo', 'bar');
 INSERT INTO config VALUES ('true', false);
 
 -- 'wait' an hour
-UPDATE config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
+UPDATE recall.config_log SET _log_start = _log_start - interval '1 hour', _log_end = _log_end - interval '1 hour';
 
 -- run some more statements
 INSERT INTO config VALUES ('answer', 42);
@@ -29,6 +29,6 @@ UPDATE config SET value=true WHERE key='true';
 SELECT recall.cleanup('config');
 
 -- and check the log data (there should be 4 rows)
-SELECT key, value, _log_end IS NULL AS is_current FROM config_log;
+SELECT key, value, _log_end IS NULL AS is_current FROM recall.config_log;
 
 ROLLBACK;

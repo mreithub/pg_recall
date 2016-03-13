@@ -21,7 +21,7 @@ SELECT recall.enable('config', '1 day');
 (1 row)
 
 -- check the data
-SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM config_log;
+SELECT key, value, now() - _log_start AS _start, now() - _log_end AS _end FROM recall.config_log;
   key   |  value   | _start | _end 
 --------+----------+--------+------
  hello  | world    | @ 0    | 

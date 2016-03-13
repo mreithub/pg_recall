@@ -15,7 +15,7 @@ SELECT recall.enable('config', '2 months');
 SELECT recall.disable('config');
 NOTICE:  view "config_past" does not exist, skipping
 CONTEXT:  SQL statement "DROP VIEW IF EXISTS config_past"
-PL/pgSQL function recall.disable(regclass) line 10 at EXECUTE
+PL/pgSQL function recall.disable(regclass) line 22 at EXECUTE
  disable 
 ---------
  
