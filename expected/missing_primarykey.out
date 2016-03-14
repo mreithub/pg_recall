@@ -8,6 +8,6 @@ CREATE TABLE config (
 );
 SELECT recall.enable('config', null);
 ERROR:  You need a primary key on your table if you want to use pg_recall (table: config)!
-CONTEXT:  SQL statement "SELECT recall.enable(tbl, duration, 'recall')"
+CONTEXT:  SQL statement "SELECT recall.enable(tbl, logInterval, 'recall')"
 PL/pgSQL function recall.enable(regclass,interval) line 3 at PERFORM
 COMMIT;

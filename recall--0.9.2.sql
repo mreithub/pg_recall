@@ -15,7 +15,7 @@ SELECT pg_catalog.pg_extension_config_dump('_config', '');
 --
 -- helper functions (and views)
 --
-CREATE VIEW recall._tablemapping AS
+CREATE VIEW @extschema@._tablemapping AS
 SELECT t.relfilenode AS id, n.nspname AS schema, t.relname AS name
 FROM pg_class t INNER JOIN pg_namespace n ON (t.relnamespace = n.oid);
 
@@ -35,7 +35,7 @@ DECLARE
 	logTable REGCLASS;
 BEGIN
 	-- get the schema and local table name for tbl (and construct tplTable and logTable from them)
-	SELECT schema, name INTO tblSchema, tblName FROM recall._tablemapping WHERE id = tbl;
+	SELECT schema, name INTO tblSchema, tblName FROM @extschema@._tablemapping WHERE id = tbl;
 	IF tblSchema = 'public' OR tblSchema = tgtSchema THEN
 		prefix := tblName;
 	ELSE
@@ -103,9 +103,9 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-CREATE FUNCTION enable(tbl REGCLASS, duration INTERVAL) RETURNS VOID AS $$
+CREATE FUNCTION enable(tbl REGCLASS, logInterval INTERVAL) RETURNS VOID AS $$
 BEGIN
-	PERFORM @extschema@.enable(tbl, duration, '@extschema@');
+	PERFORM @extschema@.enable(tbl, logInterval, '@extschema@');
 END;
 $$ LANGUAGE plpgsql;
 
@@ -128,9 +128,9 @@ BEGIN
 	END IF;
 
 	-- get schema and table names
-	SELECT schema, name INTO tblSchema, tblName FROM recall._tablemapping WHERE id = tbl;
-	SELECT schema, name INTO tplSchema, tplName FROM recall._tablemapping WHERE id = tplTable;
-	SELECT schema, name INTO logSchema, logName FROM recall._tablemapping WHERE id = logTable;
+	SELECT schema, name INTO tblSchema, tblName FROM @extschema@._tablemapping WHERE id = tbl;
+	SELECT schema, name INTO tplSchema, tplName FROM @extschema@._tablemapping WHERE id = tplTable;
+	SELECT schema, name INTO logSchema, logName FROM @extschema@._tablemapping WHERE id = logTable;
 
 	-- drop temp view created by @extschema@.at (if it exists)
 	EXECUTE format('DROP VIEW IF EXISTS %I', tbl||'_past');
@@ -176,8 +176,8 @@ BEGIN
 	SELECT pkey_cols, tpl_table, log_table INTO pkeyCols, tplTable, logTable FROM @extschema@._config WHERE tblid = TG_RELID;
 
 	-- fetch table schema and names
-	SELECT schema, name INTO tblSchema, tblName FROM recall._tablemapping WHERE id = TG_RELID;
-	SELECT schema, name INTO logSchema, logName FROM recall._tablemapping WHERE id = logTable;
+	SELECT schema, name INTO tblSchema, tblName FROM @extschema@._tablemapping WHERE id = TG_RELID;
+	SELECT schema, name INTO logSchema, logName FROM @extschema@._tablemapping WHERE id = logTable;
 
 	IF TG_OP IN ('UPDATE', 'DELETE') THEN
 		-- build WHERE clauses in the form of 'pkeyCol = OLD.pkeyCol' for each of the primary key columns
@@ -248,7 +248,7 @@ BEGIN
 	UPDATE @extschema@._config SET last_cleanup = now() WHERE tblId = tbl RETURNING log_interval, log_table INTO logInterval, logTable;
 
 	-- resolve the log table's schema and name
-	SELECT schema, name INTO logSchema, logName FROM recall._tablemapping WHERE id = logTable;
+	SELECT schema, name INTO logSchema, logName FROM @extschema@._tablemapping WHERE id = logTable;
 
 	RAISE NOTICE 'recall: Cleaning up table %', tbl;
 	-- Remove old entries
