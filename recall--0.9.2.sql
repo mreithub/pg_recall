@@ -16,7 +16,7 @@ SELECT pg_catalog.pg_extension_config_dump('_config', '');
 -- helper functions (and views)
 --
 CREATE VIEW @extschema@._tablemapping AS
-SELECT t.relfilenode AS id, n.nspname AS schema, t.relname AS name
+SELECT t.oid AS id, n.nspname AS schema, t.relname AS name
 FROM pg_class t INNER JOIN pg_namespace n ON (t.relnamespace = n.oid);
 
 --
