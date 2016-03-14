@@ -8,8 +8,6 @@ It's written in markdoen with inline SQL (all the executed statements are indent
 grep '^    ' blog.md | psql <dbName>
 ```
 
-To make this work, I added pipes (`|`) to the start of some output lines, but you should hardly notice that.
-
 ### But now down to business:  
 We'll create three tables, two of which will be managed by pg_recall.  
 Between the INSERTs/UPDATEs I've added `pg_sleep()` calls to artificially slow down the execution and to make the resulting timestamps a little more meaningful.
