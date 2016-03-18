@@ -97,7 +97,6 @@ Maybe not the best idea to invite the whole internet, let's forget about it...
 | uid |          created_at           |   name   | login |       password       |      email       
 |-----|-------------------------------|----------|-------|----------------------|------------------
 |  12 | 2016-03-14 16:16:18.765388+01 | John Doe | jdoe  | very secure password | jdoe@example.com
-(1 row)
 
 
     SELECT * FROM account_settings;
@@ -106,7 +105,6 @@ Maybe not the best idea to invite the whole internet, let's forget about it...
 |-----|-------------------|-------
 |  12 | get_newsletter    | true
 |  12 | enable_spellcheck | true
-(2 rows)
 
 
     SELECT * FROM blog_entry;
@@ -114,7 +112,6 @@ Maybe not the best idea to invite the whole internet, let's forget about it...
 | entry_id | creator |          created_at           |         title          |            content             
 |----------|---------|-------------------------------|------------------------|--------------------------------
 |      123 |      12 | 2016-03-14 16:16:18.771485+01 | Welcome to my new blog | This is sooooo super exciting!
-(1 row)
 
 ### And now for the fun stuff:
 
@@ -125,7 +122,6 @@ Maybe not the best idea to invite the whole internet, let's forget about it...
 |  12 | get_newsletter    | true  | ["2016-03-14 16:16:18.766717+01",)
 |  12 | enable_spellcheck | false | ["2016-03-14 16:16:18.766717+01","2016-03-14 16:16:22.780649+01")
 |  12 | enable_spellcheck | true  | ["2016-03-14 16:16:22.780649+01",)
-(3 rows)
 
 You can see that the enable_spellcheck setting has changed roughly four seconds after it was created.
 
@@ -139,7 +135,6 @@ All the log entries where the range end is unset are still active, all the other
 |      123 |      12 | 2016-03-14 16:16:18.771485+01 | Welcome to my new bog  | This is sooooo super exciting!                                                    | ["2016-03-14 16:16:18.771485+01","2016-03-14 16:16:20.77742+01")
 |      123 |      12 | 2016-03-14 16:16:18.771485+01 | Welcome to my new blog | This is sooooo super exciting!                                                    | ["2016-03-14 16:16:20.77742+01",)
 |      124 |      12 | 2016-03-14 16:16:18.771485+01 | House warming party    | I want to invite you all to my house warming party next tuesday at 123 Some Place | ["2016-03-14 16:16:18.771485+01","2016-03-14 16:16:24.785018+01")
-(3 rows)
 
 
 So far so good, but let's have a look at the `blog_entry` table as it was four seconds ago (right after we fixed the typo):
@@ -149,7 +144,6 @@ So far so good, but let's have a look at the `blog_entry` table as it was four s
 |       at        
 |-----------------
 | blog_entry_past
-(1 row)
 
     SELECT * FROM blog_entry_past;
 
@@ -157,7 +151,6 @@ So far so good, but let's have a look at the `blog_entry` table as it was four s
 |----------|---------|-------------------------------|------------------------|-----------------------------------------------------------------------------------
 |      123 |      12 | 2016-03-14 16:16:18.771485+01 | Welcome to my new blog | This is sooooo super exciting!
 |      124 |      12 | 2016-03-14 16:16:18.771485+01 | House warming party    | I want to invite you all to my house warming party next tuesday at 123 Some Place
-(2 rows)
 
 Using `recall.at()` is a two step process (I haven't found a cleaner way to do it).
 First you call the function (which returns the name of the temporary view it creates, but that's always going to be `<tblName>_past` - without schema). All that function does is to create the view (no actual data is accessed).
@@ -173,7 +166,6 @@ Then you can query the temporary view any way you want to (PostgreSQL will even 
 |------------------|-------------------------------|--------------|--------------|------------|-----------------------------|-----------------------------
 | blog_entry       | 2016-03-14 16:16:18.738986+01 | 6 mons       |              | {entry_id} | recall.blog_entry_tpl       | recall.blog_entry_log
 | account_settings | 2016-03-14 16:16:18.757334+01 | 1 year       |              | {uid,key}  | recall.account_settings_tpl | recall.account_settings_log
-(2 rows)
 
 
 - `tblid` defines the database table in question
