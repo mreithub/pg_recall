@@ -1,0 +1,39 @@
+digraph g {
+	node [ shape="none" ]
+
+	account [label=<
+	<table align="LEFT" cellborder="0">
+		<tr><td>account</td></tr>
+		<hr /><tr><td align="LEFT">
+			<u>uid SERIAL</u><br />
+			created_at TIMESTAMPTZ<br />
+			name VARCHAR<br />
+			login VARCHAR<br />
+			password VARCHAR<br />
+			email VARCHAR
+		</td></tr>
+	</table>>]
+	account_settings [label=<
+	<table align="left" cellborder="0">
+		<tr><td>account_settings</td></tr>
+		<hr /><tr><td>
+			<u>uid INTEGER</u><br />
+			<u>key VARCHAR</u><br />
+			value TEXT
+		</td></tr>
+	</table>>]
+	blog_entry [label=<
+	<table cellborder="0">
+		<tr><td>blog_entry</td></tr>
+		<hr /><tr><td>
+			<u>entry_id SERIAL</u><br />
+			creator INTEGER<br />
+			created_at TIMESTAMPTZ<br />
+			title VARCHAR<br />
+			content TEXT
+		</td></tr>
+	</table>>]
+
+	blog_entry -> account
+	account_settings -> account
+}
