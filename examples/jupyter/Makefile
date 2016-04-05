@@ -1,8 +1,14 @@
 
-all: blog_tables.png blog_tables.svg
+SVG_FILES=$(patsubst %.dot,target/%.svg,$(wildcard *.dot))
+PNG_FILES=$(patsubst %.dot,target/%.png,$(wildcard *.dot))
 
-%.svg: %.dot
+all: target/ ${SVG_FILES} ${PNG_FILES}
+
+target/:
+	@mkdir -p target/
+
+target/%.svg: %.dot
 	dot -Tsvg -o $@ $<
 
-%.png: %.dot
+target/%.png: %.dot
 	dot -Tpng -o $@ $<
