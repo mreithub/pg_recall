@@ -1,0 +1,33 @@
+digraph g {
+	node [ shape="none" ]
+
+	account_settings_tpl [label=<
+	<table align="left" cellborder="0">
+		<tr><td>account_settings_tpl</td></tr>
+		<hr /><tr><td>
+			<u>uid INTEGER</u><br />
+			<u>key VARCHAR</u><br />
+			value TEXT
+		</td></tr>
+	</table>>]
+
+	account_settings [label=<
+	<table align="left" cellborder="0">
+		<tr><td>account_settings</td></tr>
+		<hr /><tr><td>
+			PRIMARY KEY (uid, key)
+		</td></tr>
+	</table>>]
+
+	account_settings_log [label=<
+	<table align="left" cellborder="0">
+		<tr><td>account_settings_log</td></tr>
+		<hr /><tr><td>
+			_log_time TSTZRANGE,<br />
+			PRIMARY KEY (uid, key, _log_time)
+		</td></tr>
+	</table>>]
+
+	account_settings -> account_settings_tpl
+	account_settings_log -> account_settings_tpl
+}
