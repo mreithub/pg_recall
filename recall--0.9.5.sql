@@ -65,29 +65,29 @@ BEGIN
 	END LOOP;
 
 	-- create the _tpl table (without constraints)
-	EXECUTE format('CREATE TABLE %I.%I (LIKE %I.%I)', tgtSchema, prefix||'_tpl', tblSchema, tblName);
+	EXECUTE format('CREATE TABLE %I.%I (LIKE %s)', tgtSchema, prefix||'_tpl', tbl);
+	tplTable := format('%I.%I', tgtSchema, prefix||'_tpl');
 
 	-- create the _log table
 	EXECUTE format('CREATE TABLE %I.%I (
 		_log_time TSTZRANGE NOT NULL DEFAULT tstzrange(now(), NULL),
 		EXCLUDE USING gist (%s, _log_time WITH &&),
 		CHECK (NOT isempty(_log_time))
-		) INHERITS (%I.%I)',
+		) INHERITS (%s)',
 		tgtSchema, prefix||'_log',
 		array_to_string(overlapPkeys, ', '),
-		tgtSchema, prefix||'_tpl'
+		tplTable
 	);
+	logTable := format('%I.%I', tgtSchema, prefix||'_log');
 
 	-- make the _tpl table the parent of the data table
-	EXECUTE format('ALTER TABLE %I.%I INHERIT %I.%I', tblSchema, tblName, tgtSchema, prefix||'_tpl');
+	EXECUTE format('ALTER TABLE %s INHERIT %s', tbl, tplTable);
 
 	-- set the trigger
-	EXECUTE format('CREATE TRIGGER trig_recall AFTER INSERT OR UPDATE OR DELETE ON %I.%I
-		FOR EACH ROW EXECUTE PROCEDURE @extschema@._trigfn()', tblSchema, tblName);
+	EXECUTE format('CREATE TRIGGER trig_recall AFTER INSERT OR UPDATE OR DELETE ON %s
+		FOR EACH ROW EXECUTE PROCEDURE @extschema@._trigfn()', tbl);
 
 	-- add config table entry
-	tplTable = format('%I.%I', tgtSchema, prefix||'_tpl');
-	logTable = format('%I.%I', tgtSchema, prefix||'_log');
 	INSERT INTO @extschema@._config (tblid, log_interval, pkey_cols, tpl_table, log_table) VALUES (tbl, logInterval, pkeyCols, tplTable, logTable);
 
 	-- get list of columns and insert current database state into the log table
@@ -95,11 +95,11 @@ BEGIN
 		SELECT format('%I', attname) INTO cols FROM pg_attribute WHERE attrelid = tplTable AND attnum > 0 AND attisdropped = false
 	);
 
-	EXECUTE format('INSERT INTO %I.%I (%s) SELECT %s FROM %I.%I',
-		tgtSchema, prefix||'_log',
+	EXECUTE format('INSERT INTO %s (%s) SELECT %s FROM %s',
+		logTable,
 		array_to_string(cols, ', '),
 		array_to_string(cols, ', '),
-		tblSchema, tblName);
+		tbl);
 END;
 $$ LANGUAGE plpgsql;
 
@@ -117,9 +117,6 @@ DECLARE
 	tplTable REGCLASS;
 	logTable REGCLASS;
 
-	tblSchema NAME; tblName NAME;
-	tplSchema NAME; tplName NAME;
-	logSchema NAME; logName NAME;
 BEGIN
 	-- remove config table entry (and raise an exception if there was none)
 	DELETE FROM @extschema@._config WHERE tblid = tbl RETURNING tpl_table, log_table INTO tplTable, logTable;
@@ -127,20 +124,15 @@ BEGIN
 		RAISE EXCEPTION 'The table "%" is not managed by pg_recall', tbl;
 	END IF;
 
-	-- get schema and table names
-	SELECT schema, name INTO tblSchema, tblName FROM @extschema@._tablemapping WHERE id = tbl;
-	SELECT schema, name INTO tplSchema, tplName FROM @extschema@._tablemapping WHERE id = tplTable;
-	SELECT schema, name INTO logSchema, logName FROM @extschema@._tablemapping WHERE id = logTable;
-
 	-- drop temp view created by @extschema@.at (if it exists)
 	EXECUTE format('DROP VIEW IF EXISTS %I', tbl||'_past');
 
 	-- remove inheritance
-	EXECUTE format('ALTER TABLE %I.%I NO INHERIT %I.%I', tblSchema, tblName, tplSchema, tplName);
+	EXECUTE format('ALTER TABLE %s NO INHERIT %s', tbl, tplTable);
 
 	-- drop extra tables
-	EXECUTE format('DROP TABLE %I.%I', logSchema, logName);
-	EXECUTE format('DROP TABLE %I.%I', tplSchema, tplName);
+	EXECUTE format('DROP TABLE %s', logTable);
+	EXECUTE format('DROP TABLE %s', tplTable);
 
 	-- delete trigger
 	EXECUTE format('DROP TRIGGER trig_recall ON %I', tbl);
@@ -155,9 +147,6 @@ CREATE FUNCTION _trigfn() RETURNS TRIGGER AS $$
 DECLARE
 	tplTable REGCLASS;
 	logTable REGCLASS;
-
-	tblSchema NAME; tblName NAME;
-	logSchema NAME; logName NAME;
 
 	pkeyCols TEXT[];
 	pkeyChecks TEXT[]; -- array of 'colName = $1.colName' strings
@@ -175,10 +164,6 @@ BEGIN
 	-- Fetch the table's config
 	SELECT pkey_cols, tpl_table, log_table INTO pkeyCols, tplTable, logTable FROM @extschema@._config WHERE tblid = TG_RELID;
 
-	-- fetch table schema and names
-	SELECT schema, name INTO tblSchema, tblName FROM @extschema@._tablemapping WHERE id = TG_RELID;
-	SELECT schema, name INTO logSchema, logName FROM @extschema@._tablemapping WHERE id = logTable;
-
 	IF TG_OP IN ('UPDATE', 'DELETE') THEN
 		-- build WHERE clauses in the form of 'pkeyCol = OLD.pkeyCol' for each of the primary key columns
 		-- (they will later be joined with ' AND ' inbetween)
@@ -188,8 +173,8 @@ BEGIN
 		END LOOP;
 
 		-- mark old log entries as outdated
-		EXECUTE format('UPDATE %I.%I SET _log_time = tstzrange(LOWER(_log_time), now()) WHERE %s AND upper_inf(_log_time) AND LOWER(_log_time) != now()',
-			logSchema, logName,
+		EXECUTE format('UPDATE %s SET _log_time = tstzrange(LOWER(_log_time), now()) WHERE %s AND upper_inf(_log_time) AND LOWER(_log_time) != now()',
+			logTable,
 			array_to_string(pkeyChecks, ' AND ')) USING OLD;
 	END IF;
 	IF TG_OP IN ('INSERT', 'UPDATE') THEN
@@ -209,8 +194,8 @@ BEGIN
 		updateCount := 0;
 		IF TG_OP = 'UPDATE' THEN
 			-- we can reuse pkeyChecks here
-			EXECUTE format('UPDATE %I.%I SET %s WHERE %s AND LOWER(_log_time) = now()',
-				logSchema, logName,
+			EXECUTE format('UPDATE %s SET %s WHERE %s AND LOWER(_log_time) = now()',
+				logTable, 
 				array_to_string(assignments, ', '),
 				array_to_string(pkeyChecks, ' AND ')
 			) USING OLD, NEW;
@@ -219,8 +204,8 @@ BEGIN
 
 		IF updateCount = 0 THEN
 			-- create the log entry (as there was nothing to update)
-			EXECUTE format('INSERT INTO %I.%I (%s) VALUES (%s)',
-				logSchema, logName,
+			EXECUTE format('INSERT INTO %s (%s) VALUES (%s)',
+				logTable,
 				array_to_string(cols, ', '),
 				array_to_string(vals, ', ')
 			) USING NEW;
@@ -241,18 +226,13 @@ DECLARE
 	rc INTEGER;
 
 	logTable REGCLASS;
-	logSchema NAME;
-	logName NAME;
 BEGIN
 	-- get the log table and interval (and update last_cleanup while we're at it)
 	UPDATE @extschema@._config SET last_cleanup = now() WHERE tblId = tbl RETURNING log_interval, log_table INTO logInterval, logTable;
 
-	-- resolve the log table's schema and name
-	SELECT schema, name INTO logSchema, logName FROM @extschema@._tablemapping WHERE id = logTable;
-
 	RAISE NOTICE 'recall: Cleaning up table %', tbl;
 	-- Remove old entries
-	EXECUTE format('DELETE FROM %I.%I WHERE UPPER(_log_time) < now() - $1', logSchema, logName) USING logInterval;
+	EXECUTE format('DELETE FROM %s WHERE UPPER(_log_time) < now() - $1', logTable) USING logInterval;
 
 	GET DIAGNOSTICS rc = ROW_COUNT;
 	RETURN rc;
@@ -276,20 +256,17 @@ $$ LANGUAGE plpgsql;
 --
 CREATE FUNCTION at(tbl REGCLASS, ts TIMESTAMPTZ) RETURNS REGCLASS AS $$
 DECLARE
+	tblName TEXT;
 	tplTable REGCLASS;
 	logTable REGCLASS;
 
-	tblSchema NAME; tblName NAME;
-	logSchema NAME; logName NAME;
-
 	viewName NAME;
-	cols TEXT[];
+	cols TEXT[]; -- escaped list
 BEGIN
 	-- initialize vars
 	SELECT tpl_table, log_table INTO tplTable, logTable FROM @extschema@._config WHERE tblid = tbl;
+	SELECT name INTO tblName FROM @extschema@._tablemapping WHERE id = tbl;
 
-	SELECT schema, name INTO tblSchema, tblName FROM @extschema@._tablemapping WHERE id = tbl;
-	SELECT schema, name INTO logSchema, logName FROM @extschema@._tablemapping WHERE id = logTable;
 	viewName := tblName||'_past';
 
 	-- get (escaped) list of columns
@@ -297,10 +274,10 @@ BEGIN
 		SELECT format('%I', attname) INTO cols FROM pg_attribute WHERE attrelid = tplTable AND attnum > 0 AND attisdropped = false
 	);
 
-	EXECUTE format('CREATE OR REPLACE TEMPORARY VIEW %I AS SELECT %s FROM %I.%I WHERE _log_time @> %L::timestamptz',
+	EXECUTE format('CREATE OR REPLACE TEMPORARY VIEW %I AS SELECT %s FROM %s WHERE _log_time @> %L::timestamptz',
 		viewName,
 		array_to_string(cols, ', '),
-		logSchema, logName,
+		logTable,
 		ts
 	);
 
