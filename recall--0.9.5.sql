@@ -154,8 +154,11 @@ DECLARE
 	cols TEXT[]; -- will be filled with escaped column names (in the same order as the vals below)
 	vals TEXT[]; -- will contain the equivalent of NEW.<colName> for each of the columns in the _tpl table
 	col TEXT; -- loop variable
-	updateCount INTEGER;
+	rowCount INTEGER;
+	startTs TIMESTAMPTZ; -- contains the timestamp that marks the end of the old as well as the start of the new log entry; will be now() if possible or clock_timestamp() if newer log entries already exist (see #19)
 BEGIN
+	startTs := now();
+
 	if TG_OP = 'UPDATE' AND OLD = NEW THEN
 		RAISE INFO 'pg_recall: row unchanged, no need to write to log';
 		RETURN NEW;
@@ -173,9 +176,22 @@ BEGIN
 		END LOOP;
 
 		-- mark old log entries as outdated
-		EXECUTE format('UPDATE %s SET _log_time = tstzrange(LOWER(_log_time), now()) WHERE %s AND upper_inf(_log_time) AND LOWER(_log_time) != now()',
-			logTable,
-			array_to_string(pkeyChecks, ' AND ')) USING OLD;
+		EXECUTE format('UPDATE %s SET _log_time = tstzrange(LOWER(_log_time), now()) WHERE %s AND upper_inf(_log_time) AND LOWER(_log_time) < now()',
+			logTable, array_to_string(pkeyChecks, ' AND ')) USING OLD;
+		GET DIAGNOSTICS rowCount = ROW_COUNT;
+		IF rowCount = 0 THEN
+			-- in rare cases LOWER(_log_time) of existing entries is greater than this transaction's now() (see #19)
+			-- That's why I've added the less-than check above. If no entries have been updated above, run the same statement again but use clock_timestamp() instead of now()
+			-- special case: LOWER(_log_time) = now(), which indicates multiple updates within the same transaction. In that case we don't want an update here (hence the > in the above and the < in the below statement)
+			startTs := clock_timestamp();
+			EXECUTE format('UPDATE %s SET _log_time = tstzrange(LOWER(_log_time), $2) WHERE %s AND upper_inf(_log_time) AND LOWER(_log_time) > now()',
+				logTable, array_to_string(pkeyChecks, ' AND ')) USING OLD, startTs;
+			GET DIAGNOSTICS rowCount = ROW_COUNT;
+			IF rowCount = 0 THEN
+				-- ok, false alarm. no need to use clock_timestamp() for this log entry. Revert back to now()
+				startTs := now();
+			END IF;
+		END IF;
 	END IF;
 	IF TG_OP IN ('INSERT', 'UPDATE') THEN
 		-- get all columns of the _tpl table and put them into the cols and vals arrays
@@ -190,25 +206,24 @@ BEGIN
 			assignments = array_append(assignments, format('%I = $2.%I', col, col));
 		END LOOP;
 
-		-- for UPDATE statements, check if the value's been changed before (see #16)
-		updateCount := 0;
+		rowCount := 0;
 		IF TG_OP = 'UPDATE' THEN
-			-- we can reuse pkeyChecks here
+			-- We might already have created a log entry for the current transaction. In that case, update the existing one (see #16)
 			EXECUTE format('UPDATE %s SET %s WHERE %s AND LOWER(_log_time) = now()',
 				logTable, 
 				array_to_string(assignments, ', '),
 				array_to_string(pkeyChecks, ' AND ')
 			) USING OLD, NEW;
-			GET DIAGNOSTICS updateCount = ROW_COUNT;
+			GET DIAGNOSTICS rowCount = ROW_COUNT;
 		END IF;
 
-		IF updateCount = 0 THEN
+		IF rowCount = 0 THEN
 			-- create the log entry (as there was nothing to update)
-			EXECUTE format('INSERT INTO %s (%s) VALUES (%s)',
+			EXECUTE format('INSERT INTO %s (%s, _log_time) VALUES (%s, tstzrange($2,NULL))',
 				logTable,
 				array_to_string(cols, ', '),
 				array_to_string(vals, ', ')
-			) USING NEW;
+			) USING NEW, startTs;
 		END IF;
 
 	END IF;
