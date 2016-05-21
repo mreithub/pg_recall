@@ -1,4 +1,4 @@
-default_version = '0.9.5'
+default_version = '0.9.6'
 comment = 'Keeps track of changes to managed tables in a separate _log table'
 encoding = 'UTF-8'
 requires = 'plpgsql,btree_gist'
