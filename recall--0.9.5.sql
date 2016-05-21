@@ -95,7 +95,7 @@ BEGIN
 		SELECT format('%I', attname) INTO cols FROM pg_attribute WHERE attrelid = tplTable AND attnum > 0 AND attisdropped = false
 	);
 
-	EXECUTE format('INSERT INTO %s (%s) SELECT %s FROM %s',
+	EXECUTE format('INSERT INTO %s (%s, _log_time) SELECT %s, tstzrange(null,null) FROM %s',
 		logTable,
 		array_to_string(cols, ', '),
 		array_to_string(cols, ', '),

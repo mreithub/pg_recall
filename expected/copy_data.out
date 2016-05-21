@@ -24,9 +24,9 @@ SELECT recall.enable('config', '1 day');
 SELECT key, value, now() - LOWER(_log_time) AS _start, now() - UPPER(_log_time) AS _end FROM recall.config_log;
   key   |  value   | _start | _end 
 --------+----------+--------+------
- hello  | world    | @ 0    | 
- answer | 42       | @ 0    | 
- key    | newValue | @ 0    | 
+ hello  | world    |        | 
+ answer | 42       |        | 
+ key    | newValue |        | 
 (3 rows)
 
 ROLLBACK;
